@@ -99,9 +99,21 @@ Obliviate implements research-backed *layered* deletion rather than naive `DELET
 
 The eval harness (`evals/`) reproduces a forget-correctness benchmark (blind-judge scored) and a Reconstruction-Robustness Score comparing naive deletion vs. Obliviate.
 
+## Prior work & attribution
+
+Obliviate's **visual design and UI are adapted from my earlier open-source project, Lethe**, which
+explored verifiable forgetting on a different stack (Cognee + Kùzu + LanceDB). **The CockroachDB-native
+memory engine is newly built for this hackathon** — the knowledge graph as relational tables, vectors
+in the C-SPANN index, the atomic transactional `forget`, the `AS OF SYSTEM TIME` proof, the per-subject
+crypto-shred, and the signed erasure certificate. Moving to CockroachDB is precisely what makes
+forgetting a **single ACID transaction** and the certificate provable from the database itself —
+something that was impossible when the graph and vectors lived in two separate stores.
+
 ## What's new here
 
-Obliviate is a **from-scratch, CockroachDB-native rebuild** of a prior award-winning "verifiable forgetting" project (previously built on Cognee + Kùzu + LanceDB). Structurally new: a **single ACID cascade** across a distributed SQL + vector store (replacing three separate systems and their consistency gaps), **`AS OF SYSTEM TIME`** as the proof mechanism, **object-locked crypto-shred certificates**, and an **exhaustive recursive-CTE blast-radius**.
+Structurally new versus the prior project: a **single ACID cascade** across a distributed SQL + vector
+store (replacing three separate systems and their consistency gaps), **`AS OF SYSTEM TIME`** as the proof
+mechanism, **object-locked crypto-shred certificates**, and an **exhaustive recursive-CTE blast-radius**.
 
 ## Honest limitations
 
