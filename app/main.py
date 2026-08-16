@@ -100,6 +100,70 @@ def console():
     return _serve("index.html")
 
 
+# ─────────────────────────────────────────────────────────── /learn — the docs
+# The learning/ folder is Obliviate explained end to end (the problem, the forget
+# hero, the CockroachDB stack, the research). /learn renders it as a readable docs
+# site: a folder-derived index + raw markdown, rendered client-side. Public content.
+LEARN_DIR = os.path.join(ROOT, "learning")
+
+
+def _learn_title(md_path: str) -> str:
+    try:
+        for line in open(md_path, encoding="utf-8"):
+            s = line.strip()
+            if s.startswith("# "):
+                return s[2:].strip()
+    except OSError:
+        pass
+    base = os.path.splitext(os.path.basename(md_path))[0]
+    return base.split("-", 1)[-1].replace("-", " ").strip().capitalize()
+
+
+_LABEL_OVERRIDES = {"cockroachdb": "CockroachDB"}
+
+
+def _pretty(folder: str) -> str:
+    # "00-the-big-picture" -> "The big picture"; "02-cockroachdb" -> "CockroachDB"
+    name = folder.split("-", 1)[-1] if folder[:2].isdigit() else folder
+    if name.lower() in _LABEL_OVERRIDES:
+        return _LABEL_OVERRIDES[name.lower()]
+    return name.replace("-", " ").strip().capitalize()
+
+
+@app.get("/learn", response_class=HTMLResponse)
+def learn():
+    return _serve("learn.html")
+
+
+@app.get("/learn/index.json")
+def learn_index():
+    sections = []
+    if os.path.isdir(LEARN_DIR):
+        for folder in sorted(os.listdir(LEARN_DIR)):
+            fpath = os.path.join(LEARN_DIR, folder)
+            if not os.path.isdir(fpath):
+                continue
+            items = []
+            for fn in sorted(os.listdir(fpath)):
+                if fn.endswith(".md"):
+                    rel = f"{folder}/{fn}"
+                    items.append({"path": rel, "title": _learn_title(os.path.join(fpath, fn))})
+            if items:
+                sections.append({"label": _pretty(folder), "items": items})
+    return {"sections": sections}
+
+
+@app.get("/learn/raw/{path:path}", response_class=HTMLResponse)
+def learn_raw(path: str):
+    # path-traversal safe: resolve and confirm the target stays inside LEARN_DIR
+    target = os.path.realpath(os.path.join(LEARN_DIR, path))
+    if not target.startswith(os.path.realpath(LEARN_DIR) + os.sep) or not target.endswith(".md"):
+        raise HTTPException(status_code=404, detail="not found")
+    if not os.path.isfile(target):
+        raise HTTPException(status_code=404, detail="not found")
+    return HTMLResponse(open(target, encoding="utf-8").read(), media_type="text/markdown")
+
+
 @app.get("/api/health")
 def health():
     return {"ok": True, "service": "obliviate"}
