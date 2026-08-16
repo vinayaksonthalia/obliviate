@@ -20,6 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.ingest import ingest_document          # noqa: E402
 from core.ask import ask as ask_memory            # noqa: E402
 from core.forget import forget, prior_state, verify_gone  # noqa: E402
+from core import curation                         # noqa: E402
+from llm import client as llm_client              # noqa: E402
 from db import store                              # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -126,3 +128,41 @@ def api_subjects():
     with store.connect() as conn, conn.cursor() as c:
         c.execute("SELECT DISTINCT subject FROM documents ORDER BY subject")
         return [r[0] for r in c.fetchall()]
+
+
+class DemoteReq(BaseModel):
+    subject: str
+    weight: float | None = None
+
+
+@app.post("/api/demote")
+def api_demote(r: DemoteReq):
+    return {"demoted_nodes": curation.demote(r.subject, r.weight or curation.DEMOTE_DEEP)}
+
+
+@app.post("/api/restore")
+def api_restore(r: DemoteReq):
+    return {"restored_nodes": curation.restore(r.subject)}
+
+
+@app.get("/api/curation")
+def api_curation():
+    return {"stale_references": curation.stale_references(), "aging": curation.aging_documents()}
+
+
+class ModelReq(BaseModel):
+    provider: str | None = None
+    model: str | None = None
+    endpoint: str | None = None
+    api_key: str | None = None
+
+
+@app.get("/api/model")
+def api_model_get():
+    return {"provider": llm_client.LLM_PROVIDER, "model": llm_client.LLM_MODEL,
+            "endpoint": llm_client.LLM_ENDPOINT}
+
+
+@app.post("/api/model")
+def api_model_set(r: ModelReq):
+    return llm_client.set_config(r.provider, r.model, r.endpoint, r.api_key)

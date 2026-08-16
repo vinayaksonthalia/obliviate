@@ -23,6 +23,21 @@ LLM_ENDPOINT = os.environ.get("LLM_ENDPOINT", "http://localhost:11434")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 
 
+def set_config(provider: str | None = None, model: str | None = None,
+               endpoint: str | None = None, api_key: str | None = None) -> dict:
+    """Runtime BYO-model switch — update the active provider/model/endpoint/key."""
+    global LLM_PROVIDER, LLM_MODEL, LLM_ENDPOINT, LLM_API_KEY
+    if provider:
+        LLM_PROVIDER = provider
+    if model:
+        LLM_MODEL = model
+    if endpoint is not None:
+        LLM_ENDPOINT = endpoint
+    if api_key is not None:
+        LLM_API_KEY = api_key
+    return {"provider": LLM_PROVIDER, "model": LLM_MODEL, "endpoint": LLM_ENDPOINT}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Embeddings
 # ─────────────────────────────────────────────────────────────────────────────
