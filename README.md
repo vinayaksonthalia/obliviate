@@ -8,7 +8,7 @@
 
 Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
 
-`MIT licensed` · `CockroachDB Basic` · `AWS Lambda + S3` · `MCP-native`
+`MIT licensed` · `CockroachDB Basic` · `AWS S3 (Object Lock / WORM)` · `MCP-native`
 
 </div>
 
@@ -93,7 +93,7 @@ uvicorn app.main:app --port 8080
 Obliviate implements research-backed *layered* deletion rather than naive `DELETE`:
 
 - Naive deletion is only **~18%** robust to reconstruction attacks; dependency-graph-aware layered deletion reaches **~94%** (*ForgetAgent*, IJRASET).
-- API-confirmed vector deletion leaves embeddings **~99%** reconstructible from disk; crypto-shredding a per-subject key drops recovery to **0%** (*Ghost Vectors*, arXiv:2606.18497).
+- API-confirmed vector deletion leaves embeddings physically recoverable from the raw index on disk — *Ghost Vectors* (arXiv:2606.18497) reconstructs **25.5% of exact names and 46.4% of locations** from text embeddings (and up to ~99% from image embeddings); crypto-shredding a per-subject key drops recovery to **0%** (the paper's own "Epoch Key Rotation" fix — encrypt, then discard the key).
 
 The eval harness (`evals/`) reproduces a forget-correctness benchmark (blind-judge scored) and a Reconstruction-Robustness Score comparing naive deletion vs. Obliviate.
 

@@ -1,8 +1,17 @@
 """
 Forget: verifiable, atomic erasure of an entity from memory.
 
-The whole operation is ONE serializable CockroachDB transaction:
-  1. anchor the pre-deletion moment with cluster_logical_timestamp() (the AS OF SYSTEM TIME proof),
+The pre-deletion moment is anchored with cluster_logical_timestamp() in a SEPARATE statement
+BEFORE the deleting transaction opens. This ordering is deliberate and load-bearing: anchoring
+inside the transaction would make t_before equal the commit timestamp, so an AS OF SYSTEM TIME
+read at that value would see the POST-delete state and the proof would return nothing. Anchoring
+first means the deletes commit strictly later, so AS OF SYSTEM TIME t_before reconstructs exactly
+what existed before erasure.
+
+  1. (before the txn) anchor t_before = cluster_logical_timestamp() — the AS OF SYSTEM TIME proof.
+
+The erasure itself is then ONE serializable CockroachDB transaction (steps 2–5 commit together, so
+memory is never left in a half-erased state):
   2. hard-delete the entity's SUBJECT-EXCLUSIVE knowledge — documents, graph nodes, and every
      edge touching them,
   3. INVALIDATE (not delete) SHARED nodes — entities that also belong to a surviving subject stay,
@@ -10,9 +19,6 @@ The whole operation is ONE serializable CockroachDB transaction:
   4. crypto-shred the subject's data key, making any residual ciphertext (MVCC history, backups, S3)
      cryptographically unrecoverable,
   5. record a measured, tamper-evident erasure event.
-
-Because deletion, invalidation, and shred all commit together, memory is never left in a half-erased
-state — and the AS OF SYSTEM TIME anchor lets us prove, afterwards, exactly what existed before.
 """
 from __future__ import annotations
 

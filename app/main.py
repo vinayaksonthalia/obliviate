@@ -445,6 +445,7 @@ _CERT_TEMPLATE = """<!doctype html>
     <div class="eyebrow">Right to be forgotten &middot; Data erasure record</div>
     <h1 class="serif">Certificate of Erasure</h1>
     <div class="subject">Issued for the permanent removal of <span class="mono">{{SUBJECT}}</span> from Obliviate&rsquo;s memory.</div>
+    <div class="subject dim" style="font-size:11.5px;margin-top:6px;max-width:34rem;margin-left:auto;margin-right:auto">This operator-facing record names the subject for your internal audit trail. The portable certificate and its object-locked S3 copy carry only a salted hash — no personal data leaves in the shareable proof.</div>
   </div>
 
   <div class="rule"></div>

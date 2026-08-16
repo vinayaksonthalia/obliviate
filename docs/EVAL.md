@@ -12,8 +12,15 @@ backups) and tries to recover the plaintext *after* the record is deleted.
 | Naive delete (rows removed, key kept) | **6 / 6** | **0 %** |
 | Obliviate (delete + crypto-shred key) | **0 / 6** | **100 %** |
 
-This mirrors *Ghost Vectors* (arXiv:2606.18497): API-deletion leaves data ~99 % recoverable;
-destroying the encryption key drops recovery to 0 %.
+*Last run 2026-08-17 against the live CockroachDB cluster — reproduce with `python evals/rrs.py`.
+Attack model: the adversary holds the raw ciphertext (a leaked backup/snapshot). Naive deletion keeps
+the data key, so every record is still decryptable; crypto-shred destroys the key, so `decrypt_for`
+returns `None` for all six.*
+
+This mirrors *Ghost Vectors* (arXiv:2606.18497): API-deletion leaves embeddings physically
+recoverable from disk (the paper reconstructs 25.5 % of exact names and 46.4 % of locations
+from text embeddings, up to ~99 % from image embeddings); destroying the encryption key drops
+recovery to 0 %.
 
 ## 2. Forget-correctness (behavioral)
 

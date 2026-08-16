@@ -13,6 +13,15 @@ isn't guaranteed.
   rather than hide.
 - **The AS OF SYSTEM TIME window is bounded by the cluster GC window.** The append-only
   `erasure_events` table and the S3 certificate provide durability beyond it.
+- **The `t_before` anchor precedes the deleting transaction by a microseconds-wide window.**
+  That ordering is deliberate (it's what makes the proof read the real pre-delete state), but
+  it means a document ingested in that sliver — between the anchor and the delete — would be
+  erased yet not appear in the prior-existence proof. In practice nothing writes to a subject
+  mid-erasure; we note it rather than hide it.
+- **The certificate's HTML page is operator-facing and names the erased subject** (for your
+  audit trail) and is currently unauthenticated. The *portable* certificate and its S3 copy
+  carry only a salted hash. Put the app behind auth (`OBLIVIATE_AUTH_TOKEN`) before exposing
+  certificate URLs publicly.
 - **The certificate ID is a content hash, not by itself a signature.** Anyone can
   re-derive it to detect tampering; the certificate is *additionally* ECDSA-signed and,
   when AWS is configured, written to object-locked (WORM) S3.
