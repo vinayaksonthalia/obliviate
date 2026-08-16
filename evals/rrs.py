@@ -46,19 +46,24 @@ CORPUS = [
 ]
 
 
+# The eval runs in its OWN isolated workspace so it never touches demo/production data.
+WS = "__eval__"
+
+
 def _reset():
+    # Scoped to the eval workspace ONLY — never a bare DELETE across all workspaces.
     with store.connect() as conn, conn.cursor() as c:
         for t in ("edges", "nodes", "documents", "subject_keys", "timeline", "erasure_events"):
-            c.execute(f"DELETE FROM {t}")
+            c.execute(f"DELETE FROM {t} WHERE workspace = %s", (WS,))
 
 
 def _ingest_all():
     for s, person, acct, txt in CORPUS:
-        ingest_document(s, person, txt)
+        ingest_document(s, person, txt, WS)
     blobs = {}
     with store.connect() as conn, conn.cursor() as c:
         for s, *_ in CORPUS:
-            c.execute("SELECT content_enc FROM documents WHERE subject = %s LIMIT 1", (s,))
+            c.execute("SELECT content_enc FROM documents WHERE subject = %s AND workspace = %s LIMIT 1", (s, WS))
             row = c.fetchone()
             blobs[s] = row[0] if row else None
     return blobs
@@ -67,13 +72,13 @@ def _ingest_all():
 def _naive_delete(subject):
     # Typical implementation: delete rows, but forget to destroy the key (the fatal gap).
     with store.connect() as conn, conn.cursor() as c:
-        c.execute("DELETE FROM documents WHERE subject = %s", (subject,))
-        c.execute("DELETE FROM nodes WHERE %s::STRING = ANY(subjects)", (subject,))
+        c.execute("DELETE FROM documents WHERE subject = %s AND workspace = %s", (subject, WS))
+        c.execute("DELETE FROM nodes WHERE %s::STRING = ANY(subjects) AND workspace = %s", (subject, WS))
 
 
 def _recovered(subject, blob) -> bool:
     with store.connect() as conn:
-        return store.decrypt_for(conn, "default", subject, blob) is not None
+        return store.decrypt_for(conn, WS, subject, blob) is not None
 
 
 def rrs():
@@ -90,7 +95,7 @@ def rrs():
     _reset()
     blobs = _ingest_all()
     for s, *_ in CORPUS:
-        forget(s)
+        forget(s, WS)
     obl_rec = sum(1 for s, *_ in CORPUS if _recovered(s, blobs[s]))
 
     print(f"   Naive delete    : {naive_rec}/{n} recovered  ->  RRS {100*(1-naive_rec/n):3.0f}%")
@@ -103,15 +108,15 @@ def correctness():
     print("2. Forget-correctness (behavioral: identifying data must not resurface)")
     _reset()
     for s, person, acct, txt in CORPUS:
-        ingest_document(s, person, txt)
+        ingest_document(s, person, txt, WS)
 
     forgotten = CORPUS[:3]
     survivors = CORPUS[3:]
     for s, *_ in forgotten:
-        forget(s)
+        forget(s, WS)
 
     def account_surfaces(person, acct):
-        a = ask(f"What is {person}'s bank account number at Riverside Bank?")
+        a = ask(f"What is {person}'s bank account number at Riverside Bank?", None, WS)
         return _alnum(acct) in _alnum(a)
 
     gone = sum(1 for _, person, acct, _ in forgotten if not account_surfaces(person, acct))
