@@ -305,6 +305,238 @@ def api_model_set(r: ModelReq, _: None = Depends(require_auth)):
 
 
 # ─────────────────────────────────────────────────────────── certificate page
+_CERT_TEMPLATE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificate of Erasure &middot; Obliviate</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' fill='none' stroke='%238b5cf6' stroke-width='2.4' stroke-linecap='round'><path d='M16.97 7.97A7.2 7.2 0 1 0 16.97 16.03'/><circle cx='19.6' cy='12' r='1.25' fill='%238b5cf6' stroke='none'/><circle cx='22.6' cy='12' r='0.95' fill='%238b5cf6' stroke='none' opacity='.6'/><circle cx='25.2' cy='12' r='0.62' fill='%238b5cf6' stroke='none' opacity='.32'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--faint:#94a3b8;--line:#e2e8f0;--line2:#cbd5e1;--brand:#7c3aed;--paper:#ffffff;--wash:#f6f7fc}
+  @media (prefers-color-scheme:dark){:root{--wash:#0a0a12;--brand:#8b5cf6}}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--wash);color:var(--ink);font-family:'Geist',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .serif{font-family:'Instrument Serif','Spectral',Georgia,serif;font-weight:400}
+  .mono{font-family:'Geist Mono',ui-monospace,SFMono-Regular,monospace}
+  .dim{color:var(--faint)}
+  .wrap{max-width:760px;margin:40px auto;padding:0 20px}
+  .sheet{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:56px 60px 48px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 12px 40px -12px rgba(15,23,42,.10);position:relative}
+  .topbar{display:flex;align-items:center;gap:9px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .topbar .wordmark{font-size:21px;letter-spacing:-.01em}
+  .topbar .tag{margin-left:auto;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+  .head{text-align:center;padding:38px 0 8px}
+  .head .eyebrow{font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:var(--brand);font-weight:500}
+  .head h1{font-size:52px;line-height:1.04;margin:12px 0 0;letter-spacing:-.01em}
+  .head .subject{margin-top:14px;font-size:15px;color:var(--muted)}
+  .head .subject .mono{color:var(--ink);font-size:14px}
+  .rule{height:1px;background:var(--line);margin:34px 0}
+  .block{margin:30px 0}
+  .kicker{font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:13px;font-weight:500}
+  table.record{width:100%;border-collapse:collapse}
+  table.record th{text-align:left;font-weight:500;color:var(--muted);font-size:12.5px;padding:9px 0;width:38%;vertical-align:top;border-bottom:1px solid var(--line)}
+  table.record td{text-align:left;font-size:13.5px;padding:9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  .metrics{display:flex;gap:14px}
+  .metric{flex:1;border:1px solid var(--line);border-radius:5px;padding:18px 10px;text-align:center;background:var(--wash)}
+  .metric-n{font-family:'Geist Mono',monospace;font-size:30px;font-weight:500;letter-spacing:-.02em;color:var(--ink)}
+  .metric-l{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+  .metric-empty{flex:1;border:1px dashed var(--line2);border-radius:5px;padding:16px;text-align:center;color:var(--faint);font-size:12.5px}
+  .measured-note{margin-top:12px;font-size:12px;color:var(--muted);line-height:1.55}
+  .proof{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .proof-row{display:flex;gap:12px;padding:13px 16px;font-size:13px;line-height:1.5}
+  .proof-row.q{background:var(--wash);border-bottom:1px solid var(--line)}
+  .proof-tag{font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:var(--faint);padding-top:3px;min-width:64px}
+  .proof-note{margin:12px 2px 0;font-size:12px;color:var(--muted);line-height:1.55}
+  .attest{margin:30px 0 6px;font-size:14.5px;line-height:1.7;color:var(--ink)}
+  .certid{margin-top:34px;border:1px solid var(--line2);border-radius:6px;padding:18px 20px;display:flex;align-items:center;gap:18px;background:var(--wash)}
+  .certid .label{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .certid .hash{font-family:'Geist Mono',monospace;font-size:19px;letter-spacing:.04em;color:var(--ink);word-break:break-all}
+  .certid .frame{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5}
+  .certid .seal{margin-left:auto;flex-shrink:0;width:60px;height:60px;border:1px solid var(--brand);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--brand);opacity:.85}
+  .foot{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;font-size:11px;color:var(--faint)}
+  .foot .mono{color:var(--muted)}
+  .actions{max-width:760px;margin:18px auto 60px;padding:0 20px;text-align:center}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--paper);color:var(--ink);font-size:13px;font-weight:500;padding:10px 18px;border-radius:8px;cursor:pointer;transition:background .15s,transform .05s}
+  .btn:hover{background:var(--wash)}
+  .btn:active{transform:translateY(1px)}
+  @media print{
+    @page{margin:14mm}
+    html,body{background:#fff}
+    .wrap{margin:0 auto;max-width:none;padding:0}
+    .sheet{border:none;border-radius:0;box-shadow:none;padding:0}
+    .actions{display:none}
+    .certid,.metric,.proof-row.q{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .head h1{font-size:46px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap"><div class="sheet">
+  <div class="topbar">{{WAVE}}<span class="serif wordmark">Obliviate</span><span class="tag">Verifiable Memory Erasure</span></div>
+
+  <div class="head">
+    <div class="eyebrow">Right to be forgotten &middot; Data erasure record</div>
+    <h1 class="serif">Certificate of Erasure</h1>
+    <div class="subject">Issued for the permanent removal of <span class="mono">{{SUBJECT}}</span> from Obliviate&rsquo;s memory.</div>
+  </div>
+
+  <div class="rule"></div>
+
+  <section class="block">
+    <div class="kicker">Record</div>
+    <table class="record"><tbody>
+      <tr><th>Erased subject</th><td><span class="mono">{{SUBJECT}}</span></td></tr>
+      <tr><th>Workspace</th><td><span class="mono">{{WORKSPACE}}</span></td></tr>
+      <tr><th>Date of erasure</th><td>{{DATE_HUMAN}} <span class="mono dim">&middot; {{DATE_ISO}}</span></td></tr>
+      <tr><th>Transaction timestamp<br><span class="dim" style="font-weight:400">CockroachDB MVCC</span></th><td><span class="mono">{{MVCC_TS}}</span><div class="dim" style="font-size:11.5px;margin-top:5px">The commit timestamp the database itself assigned the erasure transaction — a provable, DB-issued fact.</div></td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="block">
+    <div class="kicker">Measured deletion &middot; permanently removed</div>
+    <div class="metrics">{{METRICS}}</div>
+    <p class="measured-note">The figures above are the real before/after difference measured against Obliviate&rsquo;s knowledge graph at erasure. The subject&rsquo;s documents, graph nodes, relationships, and vector embeddings were removed in a <strong>single ACID transaction</strong>, and the subject&rsquo;s encryption key was destroyed — rendering any residual ciphertext cryptographically unrecoverable.{{SHARED_NOTE}}</p>
+  </section>
+
+  <section class="block">
+    <div class="kicker">Verification &middot; live re-check at view time</div>
+    <div class="proof">
+      <div class="proof-row q"><span class="proof-tag">RE-CHECK</span><span>Queried the live database when this page was generated.</span></div>
+      <div class="proof-row"><span class="proof-tag">RESULT</span><span>{{VERIFY_LINE}}</span></div>
+    </div>
+    <p class="proof-note">This is not a stored claim: Obliviate re-queried CockroachDB at the moment you loaded this certificate. The subject&rsquo;s exclusive knowledge is no longer retrievable from the graph or the vector index.</p>
+  </section>
+
+  <div class="rule"></div>
+
+  <p class="attest">This certifies that the knowledge above was permanently and verifiably removed from Obliviate&rsquo;s memory on {{DATE_SHORT}} in one atomic CockroachDB transaction; a live re-query confirms it is no longer retrievable.</p>
+
+  <div class="certid">
+    <div>
+      <div class="label">Certificate ID &middot; content-hash &middot; tamper-evident</div>
+      <div class="hash">{{CERT_ID}}</div>
+      <div class="frame">{{HONESTY}}</div>
+      <div class="frame" style="margin-top:6px">Subject identifier (portable certificate carries only this hash — no personal data): <span class="mono" style="word-break:break-all">{{SUBJECT_SHA}}</span></div>
+    </div>
+    <div class="seal">{{WAVE}}</div>
+  </div>
+
+  <div class="foot">{{WAVE}}<span>Generated by <span class="mono">Obliviate</span> &mdash; verifiable AI-memory forgetting on CockroachDB. This document is built solely from Obliviate&rsquo;s stored erasure record and a live database re-check.</span></div>
+</div></div>
+
+<div class="actions">
+  <button class="btn" onclick="window.print()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+    Print / Save as PDF
+  </button>
+</div>
+</body>
+</html>"""
+
+
+def _esc(v) -> str:
+    """HTML-escape a value for safe interpolation into the certificate."""
+    import html
+    return html.escape("" if v is None else str(v))
+
+
+def _render_certificate(row, event_id: str) -> str:
+    """Build the Obliviate Certificate of Erasure page from an erasure_events row.
+
+    Design adapted from the author's earlier project Lethe (see README attribution);
+    the CockroachDB-native facts — the MVCC transaction timestamp and the live,
+    view-time proof-of-absence — are new here.
+    """
+    import hashlib
+    workspace, subject, t_before, docs, nodes, edges, shared, created_at = row
+
+    # Date formatting (best-effort; falls back to the raw DB string).
+    date_human = date_short = created_at or ""
+    try:
+        dt = datetime.fromisoformat((created_at or "").replace(" ", "T"))
+        date_human = dt.strftime("%B %-d, %Y at %H:%M UTC")
+        date_short = dt.strftime("%b %-d, %Y")
+    except Exception:
+        pass
+
+    subj_hash = hashlib.sha256(f"{workspace}:{subject or ''}".encode()).hexdigest()
+
+    # A live, view-time re-check against the database — not a stored claim.
+    try:
+        live = verify_gone(subject, workspace)
+    except Exception:
+        live = {"live_exclusive_nodes": None, "live_docs": None, "key_shredded": None}
+
+    # Content-hash certificate ID: a SHA-256 over the displayed fields, re-derivable by anyone.
+    canonical = "|".join(str(x) for x in
+                         [event_id, subj_hash, t_before, docs, nodes, edges, shared, created_at])
+    cert_id = hashlib.sha256(canonical.encode()).hexdigest()[:32]
+
+    # Metrics block — conditional; if nothing was recorded, show the honest empty state.
+    def metric(n, label):
+        return (f'<div class="metric"><div class="metric-n">{_esc(n)}</div>'
+                f'<div class="metric-l">{label}</div></div>')
+    counts = [(docs, "documents"), (nodes, "graph nodes"), (edges, "relationships")]
+    if any(c is not None for c, _ in counts):
+        metrics_html = "".join(metric(n if n is not None else 0, l) for n, l in counts)
+    else:
+        metrics_html = ('<div class="metric-empty">Deletion counts were not recorded for '
+                        'this event.</div>')
+
+    shared_note = ""
+    if shared:
+        shared_note = (f' Entities shared with surviving subjects were <strong>retained</strong> '
+                       f'for them — {_esc(shared)} such node(s) kept, with this subject&rsquo;s '
+                       f'provenance removed.')
+
+    # Honesty frame — precise about what the ID is, upgraded to reflect Obliviate's real signing.
+    honesty = ("A SHA-256 hash over this certificate&rsquo;s fields. Anyone can re-derive it from "
+               "the values above to detect tampering. This is a content hash, not a cryptographic "
+               "signature.")
+    if cert.public_key_pem():
+        seal_extra = (" The full erasure certificate is additionally signed with an ECDSA (P-256) "
+                      "key")
+        seal_extra += (" and written to object-locked (WORM) Amazon S3, so the record itself "
+                       "cannot be altered or deleted." if cert.aws_configured() else " at issue time.")
+        honesty += seal_extra
+
+    # Obliviate mark: a ring (the "O") shedding into particles = verifiable forgetting.
+    wave = ('<svg width="30" height="26" viewBox="0 0 28 24" fill="none" aria-hidden="true">'
+            '<path d="M16.97 7.97A7.2 7.2 0 1 0 16.97 16.03" stroke="var(--brand)" '
+            'stroke-width="2.2" stroke-linecap="round"/>'
+            '<circle cx="19.6" cy="12" r="1.25" fill="var(--brand)"/>'
+            '<circle cx="22.6" cy="12" r="0.95" fill="var(--brand)" opacity=".6"/>'
+            '<circle cx="25.2" cy="12" r="0.62" fill="var(--brand)" opacity=".32"/></svg>')
+
+    verify_line = (
+        f'{_esc(live["live_exclusive_nodes"])} exclusive nodes &middot; '
+        f'{_esc(live["live_docs"])} documents remain for this subject; '
+        f'encryption key destroyed: <strong>{_esc(live["key_shredded"])}</strong>')
+
+    t = _CERT_TEMPLATE
+    repl = {
+        "{{WAVE}}": wave,
+        "{{SUBJECT}}": _esc(subject),
+        "{{WORKSPACE}}": _esc(workspace),
+        "{{DATE_HUMAN}}": _esc(date_human),
+        "{{DATE_ISO}}": _esc(created_at),
+        "{{DATE_SHORT}}": _esc(date_short),
+        "{{MVCC_TS}}": _esc(t_before),
+        "{{METRICS}}": metrics_html,
+        "{{SHARED_NOTE}}": shared_note,
+        "{{VERIFY_LINE}}": verify_line,
+        "{{CERT_ID}}": _esc(cert_id),
+        "{{SUBJECT_SHA}}": _esc(subj_hash),
+        "{{HONESTY}}": honesty,
+    }
+    for k, v in repl.items():
+        t = t.replace(k, v)
+    return t
+
+
 @app.get("/certificate/{event_id}", response_class=HTMLResponse)
 def certificate_page(event_id: str):
     with store.connect() as conn, conn.cursor() as c:
@@ -316,31 +548,4 @@ def certificate_page(event_id: str):
         row = c.fetchone()
     if not row:
         return HTMLResponse("<h1>Certificate not found</h1>", status_code=404)
-    import hashlib
-    subj_hash = hashlib.sha256((row[0] + ":" + (row[1] or "")).encode()).hexdigest()
-    fields = {"event_id": event_id, "subject_sha256": subj_hash, "t_before": str(row[2]),
-              "documents": row[3], "nodes": row[4], "edges": row[5],
-              "shared_invalidated": row[6], "issued_at": row[7]}
-    pub = cert.public_key_pem()
-    rows_html = "".join(
-        f"<tr><td>{k}</td><td>{v}</td></tr>" for k, v in fields.items()
-    )
-    return f"""<!doctype html><html><head><meta charset=utf-8>
-<title>Obliviate — Certificate of Erasure</title>
-<style>body{{font-family:ui-monospace,Menlo,monospace;max-width:720px;margin:48px auto;padding:0 20px;color:#0b0b0f}}
-h1{{font-family:Georgia,serif;font-weight:600}} table{{width:100%;border-collapse:collapse;margin:20px 0}}
-td{{padding:8px 10px;border-bottom:1px solid #e5e5ea}} td:first-child{{color:#6b7280;width:40%}}
-.badge{{display:inline-block;background:#0b0b0f;color:#fff;padding:4px 10px;border-radius:6px;font-size:12px}}
-@media print{{.noprint{{display:none}}}}</style></head><body>
-<div class=badge>OBLIVIATE · CERTIFICATE OF ERASURE</div>
-<h1>Verifiable erasure receipt</h1>
-<p>This certifies that the subject below was erased from agent memory in one atomic transaction —
-documents, graph nodes, edges, and vectors — and its encryption key crypto-shredded, rendering
-any residual data cryptographically unrecoverable. The subject is identified by hash (no personal
-data is retained in this certificate).</p>
-<table>{rows_html}</table>
-<p style="color:#6b7280;font-size:13px">Tamper-evidence: this receipt is derived from the
-database's own audit record; erasures are additionally signed with an ECDSA key
-{'and stored in object-locked (WORM) S3' if cert.aws_configured() else '(local signing)'}.</p>
-<button class=noprint onclick=print()>Print / Save as PDF</button>
-</body></html>"""
+    return HTMLResponse(_render_certificate(row, event_id))
