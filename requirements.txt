@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+psycopg[binary]>=3.1
+fastembed
+boto3
+cryptography
+litellm
+python-dotenv
+pydantic>=2
+numpy
+jinja2
+python-multipart
+httpx
