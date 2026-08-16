@@ -26,13 +26,17 @@ def forget(subject: str, workspace: str = "default") -> dict:
     with store.connect() as conn:
         receipt = {"docs": 0, "nodes": 0, "edges": 0, "invalidated": 0}
 
+        # Anchor the pre-deletion moment BEFORE the deleting transaction opens (autocommit), so the
+        # deletes commit at a STRICTLY LATER timestamp and an AS OF SYSTEM TIME t_before read sees the
+        # pre-delete state. Anchoring INSIDE the txn makes cluster_logical_timestamp() equal the commit
+        # timestamp, so AOST t_before reads the POST-delete state and the proof returns nothing —
+        # empirically verified (0 rows vs 1). This ordering is what makes the proof real.
+        with conn.cursor() as cur:
+            cur.execute("SELECT cluster_logical_timestamp()::string")
+            t_before = cur.fetchone()[0]
+
         with conn.transaction():
             with conn.cursor() as cur:
-                # Anchor the pre-deletion moment as the FIRST statement inside the transaction, so
-                # the AS OF SYSTEM TIME proof cannot miss rows written between the anchor and delete.
-                cur.execute("SELECT cluster_logical_timestamp()::string")
-                t_before = cur.fetchone()[0]
-
                 # subject-exclusive nodes: subject is present AND is the ONLY distinct subject
                 cur.execute(
                     """
@@ -133,4 +137,22 @@ def verify_gone(subject: str, workspace: str = "default") -> dict:
         )
         row = cur.fetchone()
         key_shredded = bool(row and row[0] and row[1])
-    return {"live_exclusive_nodes": live_nodes, "live_docs": live_docs, "key_shredded": key_shredded}
+
+        # live vector re-search: embed the subject and confirm none of the nearest surviving nodes
+        # still carry it — proof-of-absence at the VECTOR layer, not just relational counts.
+        try:
+            from llm import client
+            qv = store.to_vector(client.embed(subject))
+            cur.execute(
+                "SELECT count(*) FROM ("
+                "  SELECT subjects FROM nodes "
+                "  WHERE workspace = %s AND deleted_at IS NULL AND embedding IS NOT NULL "
+                "  ORDER BY embedding <=> %s LIMIT 20"
+                ") t WHERE %s::STRING = ANY(subjects)",
+                (workspace, qv, subject),
+            )
+            vector_hits = cur.fetchone()[0]
+        except Exception:
+            vector_hits = None
+    return {"live_exclusive_nodes": live_nodes, "live_docs": live_docs,
+            "vector_hits": vector_hits, "key_shredded": key_shredded}

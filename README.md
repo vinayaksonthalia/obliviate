@@ -45,20 +45,19 @@ Obliviate unifies what normally takes three systems — a graph database, a vect
 - **`AS OF SYSTEM TIME`** — MVCC time-travel *is* the deletion receipt. No bolt-on history table to trust.
 - **Serializable transactions** — the cascade delete + invalidate + crypto-shred either all commit or none do.
 - **Recursive CTEs** — exhaustive, by-construction blast-radius traversal of the knowledge graph.
-- **Row-level TTL** — retention/decay enforced by the engine.
-- **Managed MCP Server** — the agent reads and writes memory through CockroachDB Cloud's MCP server.
+- **Row-level TTL** — retention enforced by the storage engine. Opt-in per row (`ttl_expire_at`): documents expire only when a retention policy sets it, so nothing is deleted by a blanket clock.
+- **MCP-native** — Obliviate ships its own MCP server (FastMCP) backed by CockroachDB, so any MCP agent (Claude Desktop/Code, Cursor) can remember, recall, and *provably forget* through the same governed store.
 
-**Required tools used:** Managed MCP Server · Distributed Vector Indexing · `AS OF SYSTEM TIME` · Row-level TTL (+ `ccloud` CLI).
-**AWS services used:** Lambda (certificate signing) · S3 (object-locked certificates) · EC2 (hosting).
+**CockroachDB capabilities used (load-bearing):** Distributed Vector Indexing (C-SPANN) · `AS OF SYSTEM TIME` · Serializable transactions · Recursive CTEs · Row-level TTL.
+**AWS services used:** S3 (object-locked / WORM erasure certificates) · EC2 (hosting). Certificates are signed **in-process** with ECDSA (P-256); a Lambda-based signer is an optional deployment variant, not required.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
     U["User / Agent"] -->|HTTPS| API["FastAPI app"]
-    API -->|"ordinary memory I/O"| MCP["CockroachDB Managed MCP Server"]
+    MCP["Obliviate MCP server (FastMCP)"] -->|"remember · recall · forget (via core)"| CRDB
     API -->|"vectors · AS OF SYSTEM TIME · cascade · CTEs"| CRDB
-    MCP --> CRDB
     subgraph CRDB["CockroachDB (one transactional store)"]
       D["documents (encrypted)"]
       N["nodes + VECTOR index"]
@@ -66,8 +65,7 @@ flowchart TB
       K["subject_keys (crypto-shred)"]
       EV["erasure_events (audit)"]
     end
-    API -->|"invoke"| L["AWS Lambda — sign certificate"]
-    L -->|"PUT (Object Lock / WORM)"| S3["Amazon S3 — erasure certificates"]
+    API -->|"sign (ECDSA P-256) + PUT (Object Lock / WORM)"| S3["Amazon S3 — erasure certificates"]
     API -->|"embeddings"| FE["fastembed (local, 384-d)"]
     API -->|"generation"| LLM["LLM — local (Ollama) or hosted, BYO-model"]
 ```

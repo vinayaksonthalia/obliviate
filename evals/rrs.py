@@ -73,7 +73,7 @@ def _naive_delete(subject):
 
 def _recovered(subject, blob) -> bool:
     with store.connect() as conn:
-        return store.decrypt_for(conn, subject, blob) is not None
+        return store.decrypt_for(conn, "default", subject, blob) is not None
 
 
 def rrs():

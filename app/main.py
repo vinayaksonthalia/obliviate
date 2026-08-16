@@ -511,10 +511,14 @@ def _render_certificate(row, event_id: str) -> str:
             '<circle cx="22.6" cy="12" r="0.95" fill="var(--brand)" opacity=".6"/>'
             '<circle cx="25.2" cy="12" r="0.62" fill="var(--brand)" opacity=".32"/></svg>')
 
+    vh = live.get("vector_hits")
+    vector_part = (f'vector re-search (top-20 ANN): <strong>{_esc(vh)}</strong> nodes still carry '
+                   f'this subject &middot; ') if vh is not None else ""
     verify_line = (
-        f'{_esc(live["live_exclusive_nodes"])} exclusive nodes &middot; '
-        f'{_esc(live["live_docs"])} documents remain for this subject; '
-        f'encryption key destroyed: <strong>{_esc(live["key_shredded"])}</strong>')
+        f'{_esc(live.get("live_exclusive_nodes"))} exclusive nodes &middot; '
+        f'{_esc(live.get("live_docs"))} documents remain for this subject &middot; '
+        f'{vector_part}'
+        f'encryption key destroyed: <strong>{_esc(live.get("key_shredded"))}</strong>')
 
     t = _CERT_TEMPLATE
     repl = {

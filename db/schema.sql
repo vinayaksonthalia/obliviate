@@ -13,9 +13,17 @@ CREATE TABLE IF NOT EXISTS documents (
     importance   FLOAT8 DEFAULT 0.5,              -- FSFM-style score (drives TTL/retention)
     reviewed_at  TIMESTAMPTZ DEFAULT now(),
     created_at   TIMESTAMPTZ DEFAULT now(),
-    deleted_at   TIMESTAMPTZ
+    deleted_at   TIMESTAMPTZ,
+    ttl_expire_at TIMESTAMPTZ                      -- row-level TTL: engine deletes the row after this
 );
 CREATE INDEX IF NOT EXISTS documents_ws_subject_idx ON documents (workspace, subject);
+
+-- Row-level TTL, enforced by the CockroachDB storage engine (a background job reaps expired rows).
+-- Expiration is per-row and OPT-IN: rows with a NULL ttl_expire_at never expire, so retention is a
+-- policy we set (e.g. on aged/low-importance docs) rather than a blanket clock. Idempotent so both
+-- fresh installs and existing clusters converge here.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS ttl_expire_at TIMESTAMPTZ;
+ALTER TABLE documents SET (ttl_expiration_expression = 'ttl_expire_at', ttl_job_cron = '@hourly');
 
 -- Nodes: knowledge-graph entities extracted from documents (LLM-extracted, coreference-merged).
 -- UNIQUE(workspace, name) gives deterministic dedup via INSERT .. ON CONFLICT, per workspace.
