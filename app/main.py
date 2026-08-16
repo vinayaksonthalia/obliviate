@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -22,6 +23,7 @@ from core.ask import ask as ask_memory            # noqa: E402
 from core.forget import forget, prior_state, verify_gone  # noqa: E402
 from core import curation                         # noqa: E402
 from llm import client as llm_client              # noqa: E402
+from aws import certificate as cert               # noqa: E402
 from db import store                              # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -48,12 +50,23 @@ class ForgetReq(BaseModel):
     subject: str
 
 
-@app.get("/", response_class=HTMLResponse)
-def index():
-    path = os.path.join(TEMPLATES, "index.html")
+def _serve(name: str, fallback: str | None = None) -> str:
+    path = os.path.join(TEMPLATES, name)
     if os.path.exists(path):
         return open(path, encoding="utf-8").read()
+    if fallback:
+        return _serve(fallback)
     return "<h1>Obliviate</h1><p>UI not built yet.</p>"
+
+
+@app.get("/", response_class=HTMLResponse)
+def landing():
+    return _serve("landing.html", fallback="index.html")
+
+
+@app.get("/app", response_class=HTMLResponse)
+def console():
+    return _serve("index.html")
 
 
 @app.get("/api/health")
@@ -73,12 +86,16 @@ def api_ask(r: AskReq):
 
 @app.post("/api/forget")
 def api_forget(r: ForgetReq):
-    """Verifiable erasure: receipt + proof-of-prior-existence (AOST) + proof-of-absence."""
+    """Verifiable erasure: receipt + proof-of-prior-existence (AOST) + proof-of-absence + certificate."""
     receipt = forget(r.subject)
+    prior = prior_state(r.subject, receipt["t_before"])
+    absence = verify_gone(r.subject)
+    certificate = cert.issue(receipt, prior, absence, datetime.now(timezone.utc).isoformat())
     return {
         "receipt": receipt,
-        "proof_prior_existence": prior_state(r.subject, receipt["t_before"]),
-        "proof_of_absence": verify_gone(r.subject),
+        "proof_prior_existence": prior,
+        "proof_of_absence": absence,
+        "certificate": certificate,
     }
 
 
