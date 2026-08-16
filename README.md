@@ -10,6 +10,10 @@ Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — doc
 
 `MIT licensed` · `CockroachDB Basic` · `AWS S3 (Object Lock / WORM)` · `MCP-native`
 
+<br>
+
+![Obliviate landing](docs/screenshots/01-landing-hero.png)
+
 </div>
 
 ---
@@ -36,6 +40,20 @@ Point it at an entity — a customer, a decommissioned system, a poisoned memory
 Two applications of the same primitive:
 - **Data-integrity / incident response** — a poisoned or wrong fact entered your agent's memory. Cut it out cleanly, cluster-wide, and prove the graph is clean again.
 - **Compliance** — GDPR/HIPAA right-to-erasure with a certificate you can hand an auditor.
+
+### Forget & Prove — the hero
+
+One click erases a subject in a single ACID transaction, then proves it three ways — *it existed* (AS OF SYSTEM TIME), *it's gone* (live vector + graph re-check), *it's irreversible* (crypto-shred + object-locked S3 certificate).
+
+| The 3-part proof | The signed certificate |
+|:---:|:---:|
+| ![Forget & Prove](docs/screenshots/05-forget-proof.png) | ![Certificate of Erasure](docs/screenshots/07-certificate.png) |
+
+The knowledge graph (31 entities from 13 seeded systems) and the in-app docs:
+
+| Knowledge graph | Docs (`/learn`) |
+|:---:|:---:|
+| ![Knowledge graph](docs/screenshots/02-graph.png) | ![Docs](docs/screenshots/08-docs.png) |
 
 ## Why CockroachDB (load-bearing, not a checkbox)
 
