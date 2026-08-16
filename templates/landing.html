@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Obliviate — Verifiable forgetting for AI-agent memory</title>
+<meta name="description" content="When an agent's memory is wrong, poisoned, or must legally disappear — delete it everywhere, atomically, and prove it's gone. CockroachDB-native verifiable forgetting." />
+<meta name="theme-color" content="#0a0b0d" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%235b68e8'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a7 7 0 1 0 7 7'/%3E%3Cpath d='M12 5v7l5 3'/%3E%3C/g%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg: #0a0b0d;
+    --bg-elev: #101216;
+    --panel: #121418;
+    --panel-2: #16181d;
+    --border: #23262e;
+    --border-soft: #1b1e24;
+    --text: #e7e9ee;
+    --text-dim: #9aa0ac;
+    --text-faint: #6b7280;
+    --accent: #7c8cff;
+    --accent-2: #5b68e8;
+    --accent-soft: rgba(124,140,255,.14);
+    --accent-line: rgba(124,140,255,.34);
+    --green: #3ecf8e;
+    --green-soft: rgba(62,207,142,.12);
+    --amber: #f5b34a;
+    --red: #ff6b6b;
+    --red-soft: rgba(255,107,107,.12);
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 34px rgba(0,0,0,.4);
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --header-bg: rgba(10,11,13,.66);
+    --hero-glow: radial-gradient(60% 80% at 50% -10%, rgba(124,140,255,.16), transparent 60%);
+    --grid-line: rgba(255,255,255,.028);
+    --scroll-thumb: #20232b;
+    --scroll-thumb-hover: #2b2f39;
+  }
+  :root[data-theme="light"]{
+    --bg: #f6f7f9;
+    --bg-elev: #ffffff;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --border: #e3e6ec;
+    --border-soft: #eceef2;
+    --text: #191c22;
+    --text-dim: #59606d;
+    --text-faint: #8b919d;
+    --accent: #5b68e8;
+    --accent-2: #5b68e8;
+    --accent-soft: rgba(91,104,232,.1);
+    --accent-line: rgba(91,104,232,.3);
+    --green: #10a271;
+    --green-soft: rgba(16,162,113,.1);
+    --amber: #b9791a;
+    --red: #e14b4b;
+    --red-soft: rgba(225,75,75,.1);
+    --shadow: 0 1px 2px rgba(20,24,33,.05), 0 12px 30px rgba(20,24,33,.08);
+    --header-bg: rgba(246,247,249,.72);
+    --hero-glow: radial-gradient(60% 80% at 50% -10%, rgba(91,104,232,.12), transparent 60%);
+    --grid-line: rgba(20,24,33,.03);
+    --scroll-thumb: #d3d7de;
+    --scroll-thumb-hover: #c1c6cf;
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html,body{ min-height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); font-size:15px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    letter-spacing:-0.011em; overflow-x:hidden;
+    transition:background-color .32s ease, color .32s ease;
+  }
+  a{ color:inherit; text-decoration:none; }
+  ::selection{ background:var(--accent-soft); }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:var(--scroll-thumb); border-radius:20px; border:2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--scroll-thumb-hover); }
+
+  .wrap{ width:100%; max-width:1120px; margin:0 auto; padding:0 24px; }
+
+  /* ---------- Header ---------- */
+  header.site{
+    position:sticky; top:0; z-index:50; backdrop-filter:blur(14px);
+    background:var(--header-bg); border-bottom:1px solid var(--border-soft);
+    transition:background-color .32s ease, border-color .32s ease;
+  }
+  .nav{ display:flex; align-items:center; gap:16px; height:64px; }
+  .brand-row{ display:flex; align-items:center; gap:11px; }
+  .brand-mark{
+    width:30px; height:30px; border-radius:8px; flex:0 0 auto;
+    background:radial-gradient(120% 120% at 30% 20%, #9aa6ff, #5b68e8 60%, #3a44b8);
+    display:grid; place-items:center; box-shadow:0 0 0 1px rgba(124,140,255,.35), 0 6px 18px rgba(91,104,232,.35);
+  }
+  .brand-name{ font-weight:600; font-size:16px; letter-spacing:-0.02em; }
+  .nav-spacer{ margin-left:auto; }
+  .nav-links{ display:flex; align-items:center; gap:26px; }
+  .nav-links a{ color:var(--text-dim); font-size:13.5px; font-weight:450; transition:color .14s; }
+  .nav-links a:hover{ color:var(--text); }
+  @media(max-width:720px){ .nav-links{ display:none; } }
+
+  .theme-toggle{
+    display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 auto;
+    border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
+    cursor:pointer; transition:all .15s;
+  }
+  .theme-toggle:hover{ color:var(--text); border-color:#31353f; }
+  :root[data-theme="light"] .theme-toggle:hover{ border-color:#cdd1d8; }
+  .theme-toggle svg{ width:17px; height:17px; }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+    border-radius:var(--radius-sm); padding:9px 15px; font-family:inherit; font-size:13.5px; font-weight:550;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text); transition:all .14s; letter-spacing:-0.01em; white-space:nowrap;
+  }
+  .btn:hover{ border-color:#31353f; background:#1b1e24; }
+  :root[data-theme="light"] .btn:hover{ border-color:#cdd1d8; background:#f5f6f9; }
+  .btn svg{ width:15px; height:15px; }
+  .btn.primary{ background:linear-gradient(180deg,#8592ff,#6573f0); border-color:#6573f0; color:#fff; box-shadow:0 6px 18px rgba(101,115,240,.3); }
+  .btn.primary:hover{ filter:brightness(1.06); background:linear-gradient(180deg,#8592ff,#6573f0); }
+  .btn.big{ padding:13px 22px; font-size:15px; border-radius:11px; }
+
+  /* ---------- Hero ---------- */
+  .hero{ position:relative; padding:104px 0 76px; text-align:center; overflow:hidden; }
+  .hero::before{ content:""; position:absolute; inset:0; background:var(--hero-glow); pointer-events:none; }
+  .hero::after{
+    content:""; position:absolute; inset:0; pointer-events:none; z-index:0;
+    background-image:linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size:44px 44px; mask-image:radial-gradient(70% 60% at 50% 30%, #000, transparent 75%);
+    -webkit-mask-image:radial-gradient(70% 60% at 50% 30%, #000, transparent 75%);
+  }
+  .hero .wrap{ position:relative; z-index:1; }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11.5px; letter-spacing:.02em;
+    color:var(--text-dim); background:var(--panel); border:1px solid var(--border); padding:5px 12px; border-radius:20px; margin-bottom:26px;
+  }
+  .eyebrow .pulse{ width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); }
+  h1.hero-title{ font-size:clamp(40px,6.4vw,68px); line-height:1.04; font-weight:650; letter-spacing:-0.035em; margin:0 0 20px; }
+  h1.hero-title .grad{
+    background:linear-gradient(120deg, var(--accent), #b39bff 55%, var(--accent));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .tagline{ font-size:clamp(17px,2.3vw,21px); color:var(--text); font-weight:500; margin:0 auto 14px; max-width:640px; letter-spacing:-0.02em; }
+  .pitch{ font-size:16px; color:var(--text-dim); margin:0 auto 34px; max-width:640px; }
+  .hero-cta{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+
+  /* ---------- Section scaffolding ---------- */
+  section.block{ padding:74px 0; position:relative; }
+  section.block + section.block{ border-top:1px solid var(--border-soft); }
+  .sec-head{ max-width:680px; margin:0 auto 44px; text-align:center; }
+  .kicker{ font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin:0 0 12px; font-weight:500; }
+  h2.sec-title{ font-size:clamp(26px,3.6vw,36px); font-weight:620; letter-spacing:-0.03em; margin:0 0 12px; }
+  .sec-sub{ font-size:16px; color:var(--text-dim); margin:0; }
+
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+
+  /* ---------- Problem ---------- */
+  .prob-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  @media(max-width:860px){ .prob-grid{ grid-template-columns:1fr; } }
+  .prob{ padding:24px; }
+  .prob .ic{ width:40px; height:40px; border-radius:11px; display:grid; place-items:center; margin-bottom:16px; border:1px solid var(--red-soft); background:var(--red-soft); }
+  .prob .ic svg{ width:20px; height:20px; stroke:var(--red); }
+  .prob h3{ font-size:16.5px; font-weight:600; margin:0 0 7px; letter-spacing:-0.015em; }
+  .prob p{ font-size:14px; color:var(--text-dim); margin:0; }
+
+  /* ---------- How it works ---------- */
+  .proofs{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  @media(max-width:860px){ .proofs{ grid-template-columns:1fr; } }
+  .proof{ padding:26px 24px; position:relative; overflow:hidden; }
+  .proof .num{
+    width:38px; height:38px; border-radius:10px; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:600; font-size:15px; margin-bottom:18px;
+  }
+  .proof.p1 .num{ background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line); }
+  .proof.p2 .num{ background:var(--green-soft); color:var(--green); border:1px solid rgba(62,207,142,.3); }
+  .proof.p3 .num{ background:var(--red-soft); color:var(--red); border:1px solid rgba(255,107,107,.3); }
+  .proof h3{ font-size:17px; font-weight:600; margin:0 0 8px; letter-spacing:-0.02em; }
+  .proof p{ font-size:14px; color:var(--text-dim); margin:0 0 16px; }
+  .proof .code{
+    font-family:var(--mono); font-size:12px; color:var(--text-dim); background:var(--bg-elev);
+    border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px; line-height:1.5; word-break:break-word;
+  }
+  .proof .code .hl{ color:var(--accent); }
+  .proof .code .ok{ color:var(--green); }
+  .proof .code .no{ color:var(--red); }
+  .proof-verdict{ display:inline-flex; align-items:center; gap:7px; margin-top:14px; font-family:var(--mono); font-size:11.5px; padding:4px 10px; border-radius:20px; }
+  .proof.p1 .proof-verdict{ background:var(--accent-soft); color:var(--accent); }
+  .proof.p2 .proof-verdict{ background:var(--green-soft); color:var(--green); }
+  .proof.p3 .proof-verdict{ background:var(--red-soft); color:var(--red); }
+
+  /* ---------- Features ---------- */
+  .feat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:860px){ .feat-grid{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:560px){ .feat-grid{ grid-template-columns:1fr; } }
+  .feat{ padding:22px; }
+  .feat .ic{ width:38px; height:38px; border-radius:10px; display:grid; place-items:center; margin-bottom:15px; background:var(--accent-soft); border:1px solid var(--accent-line); }
+  .feat .ic svg{ width:19px; height:19px; stroke:var(--accent); }
+  .feat h3{ font-size:15.5px; font-weight:600; margin:0 0 6px; letter-spacing:-0.015em; }
+  .feat p{ font-size:13.5px; color:var(--text-dim); margin:0; }
+
+  /* ---------- Stack strip ---------- */
+  .stack{ padding:40px 0; }
+  .stack-inner{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px 16px; }
+  .stack-label{ font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-faint); width:100%; text-align:center; margin-bottom:6px; }
+  .stack-item{
+    font-family:var(--mono); font-size:12.5px; color:var(--text-dim); background:var(--panel);
+    border:1px solid var(--border); padding:8px 14px; border-radius:22px; white-space:nowrap;
+  }
+  .stack-item b{ color:var(--accent); font-weight:500; }
+  .stack-dot{ color:var(--text-faint); }
+
+  /* ---------- CTA band ---------- */
+  .cta-band{ text-align:center; padding:76px 0; }
+  .cta-band .card{ padding:52px 32px; position:relative; overflow:hidden; }
+  .cta-band .card::before{ content:""; position:absolute; inset:0; background:var(--hero-glow); pointer-events:none; }
+  .cta-band h2{ font-size:clamp(24px,3.4vw,34px); font-weight:640; letter-spacing:-0.03em; margin:0 0 12px; position:relative; }
+  .cta-band p{ font-size:16px; color:var(--text-dim); margin:0 auto 28px; max-width:520px; position:relative; }
+  .cta-band .hero-cta{ position:relative; }
+
+  /* ---------- Footer ---------- */
+  footer.site{ border-top:1px solid var(--border-soft); padding:34px 0; }
+  .foot-inner{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; color:var(--text-faint); font-size:13px; }
+  .foot-inner .brand-name{ font-size:14px; color:var(--text-dim); }
+  .foot-inner .sp{ margin-left:auto; }
+  .foot-inner a{ color:var(--text-dim); }
+  .foot-inner a:hover{ color:var(--text); }
+
+  /* ---------- Hero illustration (original inline SVG) ---------- */
+  .hero-art{ width:100%; max-width:720px; margin:48px auto 0; display:block; }
+  .hero-art .edge{ stroke:var(--border); stroke-width:1.4; }
+  .hero-art .node{ fill:var(--accent); }
+  .hero-art .node-core{ fill:var(--bg); }
+  .hero-art .ring{ fill:none; stroke:var(--accent); stroke-width:1.4; opacity:.5; }
+  .hero-art .ghost{ fill:none; stroke:var(--text-faint); stroke-width:1.3; stroke-dasharray:3 3; opacity:.55; }
+  .hero-art .spark{ fill:var(--accent); }
+  .hero-art .sweep{ stroke:var(--red); stroke-width:2; opacity:.9; }
+  .hero-art .sweep-glow{ stroke:var(--red); stroke-width:7; opacity:.14; }
+  .hero-art .shield{ fill:var(--green-soft); stroke:var(--green); stroke-width:1.6; }
+  .hero-art .check{ stroke:var(--green); stroke-width:2.2; fill:none; }
+  .hero-art .lbl{ fill:var(--text-faint); font-family:var(--mono); font-size:9px; letter-spacing:.06em; text-transform:uppercase; }
+  .hero-art .spark{ animation:sparkDrift 4.5s ease-in-out infinite; }
+  .hero-art .spark.s2{ animation-duration:5.8s; animation-delay:-1.4s; }
+  .hero-art .spark.s3{ animation-duration:6.6s; animation-delay:-3.1s; }
+  .hero-art .spark.s4{ animation-duration:5.2s; animation-delay:-2.2s; }
+  .hero-art .spark.s5{ animation-duration:7.1s; animation-delay:-0.8s; }
+  @keyframes sparkDrift{ 0%{ transform:translate(0,0); opacity:0; } 15%{ opacity:.9; } 70%{ opacity:.5; } 100%{ transform:translate(26px,-16px); opacity:0; } }
+  .hero-art .sweep-grp{ animation:sweepMove 5s cubic-bezier(.4,0,.4,1) infinite; }
+  @keyframes sweepMove{ 0%{ transform:translateX(-30px); opacity:0; } 12%{ opacity:1; } 60%{ opacity:1; } 78%{ opacity:0; } 100%{ transform:translateX(150px); opacity:0; } }
+  .hero-art .pulse-ring{ transform-box:fill-box; transform-origin:center; animation:pulseRing 3s ease-out infinite; }
+  @keyframes pulseRing{ 0%{ transform:scale(.6); opacity:.6; } 100%{ transform:scale(1.5); opacity:0; } }
+
+  /* ---------- Proof mini-diagram ---------- */
+  .proof-diagram{ width:100%; max-width:760px; margin:0 auto 40px; display:block; }
+  .proof-diagram .track{ stroke:var(--border); stroke-width:1.5; }
+  .proof-diagram .flow{ stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4 5; animation:flowDash 1.1s linear infinite; }
+  @keyframes flowDash{ to{ stroke-dashoffset:-18; } }
+  .proof-diagram .st-1{ fill:var(--accent-soft); stroke:var(--accent-line); }
+  .proof-diagram .st-2{ fill:var(--green-soft); stroke:var(--green); }
+  .proof-diagram .st-3{ fill:var(--red-soft); stroke:var(--red); }
+  .proof-diagram .ic-1{ stroke:var(--accent); } .proof-diagram .ic-2{ stroke:var(--green); } .proof-diagram .ic-3{ stroke:var(--red); }
+  .proof-diagram .cap{ fill:var(--text-dim); font-family:var(--mono); font-size:10px; letter-spacing:.04em; text-anchor:middle; }
+  .proof-diagram .tnode{ fill:var(--text-faint); font-family:var(--mono); font-size:8.5px; text-anchor:middle; }
+
+  @media(prefers-reduced-motion:reduce){
+    .hero-art .spark, .hero-art .sweep-grp, .hero-art .pulse-ring, .proof-diagram .flow{ animation:none; }
+    .hero-art .spark{ opacity:.5; }
+  }
+
+  /* ---------- Entrance animations ---------- */
+  .reveal{ opacity:0; transform:translateY(16px); transition:opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+  .reveal.d1{ transition-delay:.06s; } .reveal.d2{ transition-delay:.12s; } .reveal.d3{ transition-delay:.18s; }
+  @media(prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } html{ scroll-behavior:auto; } }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap nav">
+    <a class="brand-row" href="/" aria-label="Obliviate home">
+      <span class="brand-mark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 4"/></svg>
+      </span>
+      <span class="brand-name">Obliviate</span>
+    </a>
+    <div class="nav-spacer"></div>
+    <nav class="nav-links">
+      <a href="#problem">Problem</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#stack">Stack</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light or dark theme"></button>
+    <a class="btn primary" href="/app">
+      Launch Console
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow reveal in"><span class="pulse"></span> CockroachDB-native · built for the CockroachDB × AWS hackathon</span>
+      <h1 class="hero-title reveal in">Verifiable forgetting for<br /><span class="grad">AI-agent memory</span></h1>
+      <p class="tagline reveal in d1">When an agent's memory is wrong, poisoned, or must legally disappear — delete it everywhere, atomically, and prove it's gone.</p>
+      <p class="pitch reveal in d2">Obliviate erases a subject across documents, the knowledge graph, and the vector index in one atomic transaction — then hands you cryptographic proof that the memory existed, is gone, and can never come back.</p>
+      <div class="hero-cta reveal in d3">
+        <a class="btn primary big" href="/app">
+          Launch Console
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <a class="btn big" href="#how">See how it works</a>
+      </div>
+
+      <!-- Original hero illustration: intact memory → erasure sweep → sealed proof -->
+      <svg class="hero-art reveal in d3" viewBox="0 0 720 290" role="img" aria-label="A connected memory graph is erased by a sweep, dissolving into ghost tombstones, and sealed with a cryptographic proof shield.">
+        <!-- section labels -->
+        <text class="lbl" x="118" y="270" text-anchor="middle">Memory</text>
+        <text class="lbl" x="360" y="270" text-anchor="middle">Erasure</text>
+        <text class="lbl" x="602" y="270" text-anchor="middle">Proof</text>
+
+        <!-- LEFT: intact knowledge graph -->
+        <g>
+          <line class="edge" x1="96" y1="86" x2="158" y2="58"/>
+          <line class="edge" x1="96" y1="86" x2="176" y2="140"/>
+          <line class="edge" x1="176" y1="140" x2="116" y2="184"/>
+          <line class="edge" x1="116" y1="184" x2="62" y2="128"/>
+          <line class="edge" x1="62" y1="128" x2="96" y2="86"/>
+          <line class="edge" x1="158" y1="58" x2="176" y2="140"/>
+          <g><circle class="node" cx="96" cy="86" r="9"/><circle class="node-core" cx="96" cy="86" r="3.4"/></g>
+          <g><circle class="node" cx="158" cy="58" r="7"/><circle class="node-core" cx="158" cy="58" r="2.6"/></g>
+          <g><circle class="node" cx="176" cy="140" r="8"/><circle class="node-core" cx="176" cy="140" r="3"/></g>
+          <g><circle class="node" cx="116" cy="184" r="7"/><circle class="node-core" cx="116" cy="184" r="2.6"/></g>
+          <g><circle class="node" cx="62" cy="128" r="7.5"/><circle class="node-core" cx="62" cy="128" r="2.8"/></g>
+        </g>
+
+        <!-- MIDDLE: dissolving ghosts + drifting sparks -->
+        <g>
+          <circle class="ghost" cx="288" cy="92" r="8"/>
+          <circle class="ghost" cx="344" cy="140" r="7"/>
+          <circle class="ghost" cx="300" cy="188" r="6.5"/>
+          <circle class="ghost" cx="400" cy="104" r="7"/>
+          <circle class="ghost" cx="410" cy="176" r="6"/>
+          <circle class="spark s1" cx="320" cy="120" r="2.4"/>
+          <circle class="spark s2" cx="356" cy="96" r="1.9"/>
+          <circle class="spark s3" cx="300" cy="150" r="2.1"/>
+          <circle class="spark s4" cx="388" cy="150" r="1.7"/>
+          <circle class="spark s5" cx="340" cy="180" r="2.2"/>
+        </g>
+
+        <!-- red erasure sweep -->
+        <g class="sweep-grp">
+          <line class="sweep-glow" x1="250" y1="44" x2="250" y2="236"/>
+          <line class="sweep" x1="250" y1="44" x2="250" y2="236"/>
+        </g>
+
+        <!-- RIGHT: sealed proof shield -->
+        <g transform="translate(602,132)">
+          <circle class="ring pulse-ring" cx="0" cy="0" r="40"/>
+          <path class="shield" d="M0 -46 L38 -30 V6 C38 34 20 50 0 58 C-20 50 -38 34 -38 6 V-30 Z"/>
+          <path class="check" d="M-17 2 L-4 16 L20 -14" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="block" id="problem">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <p class="kicker">The problem</p>
+        <h2 class="sec-title">Memory that only accumulates is a liability</h2>
+        <p class="sec-sub">Agents remember everything and forget nothing. That's fine — until a fact is wrong, hostile, or legally radioactive.</p>
+      </div>
+      <div class="prob-grid">
+        <div class="card prob reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg></div>
+          <h3>Poisoned facts</h3>
+          <p>A single injected or hallucinated fact propagates through retrieval into every future answer. Once it's embedded and linked, deleting one row isn't enough.</p>
+        </div>
+        <div class="card prob reveal d1">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></div>
+          <h3>The right to erasure</h3>
+          <p>GDPR Article 17 and CCPA require you to delete a person's data on request — everywhere it lives — and to demonstrate that you did. "We think it's gone" is not compliance.</p>
+        </div>
+        <div class="card prob reveal d2">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 12 3 4 7v6c0 5 3.5 7.5 8 9 4.5-1.5 8-4 8-9z"/><path d="M9 12l2 2 4-4"/></svg></div>
+          <h3>Unprovable deletion</h3>
+          <p>Ciphertext lingers in MVCC history, replicas, backups, and object storage. Without cryptographic assurance, you can't prove residual data is truly unrecoverable.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="block" id="how">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <p class="kicker">How it works</p>
+        <h2 class="sec-title">Three proofs, one atomic transaction</h2>
+        <p class="sec-sub">Obliviate doesn't just delete. It produces a verifiable, three-part proof around every erasure.</p>
+      </div>
+
+      <!-- Original mini-diagram: the three proofs across the erasure timeline -->
+      <svg class="proof-diagram reveal" viewBox="0 0 760 140" role="img" aria-label="Three proofs across the erasure timeline: it existed (recovered from history), it's gone (live-verified), and it's irreversible (key shredded).">
+        <!-- timeline track -->
+        <line class="track" x1="70" y1="112" x2="690" y2="112"/>
+        <line class="flow" x1="70" y1="112" x2="690" y2="112"/>
+        <circle cx="70" cy="112" r="3.5" class="ic-1" fill="currentColor" stroke="none" style="fill:var(--accent)"/>
+        <circle cx="380" cy="112" r="3.5" style="fill:var(--green)"/>
+        <circle cx="690" cy="112" r="3.5" style="fill:var(--red)"/>
+        <text class="tnode" x="70" y="130">t_before</text>
+        <text class="tnode" x="380" y="130">erase (atomic)</text>
+        <text class="tnode" x="690" y="130">verified</text>
+
+        <!-- connectors -->
+        <path class="flow" d="M190 52 H250" fill="none"/>
+        <path class="flow" d="M440 52 H500" fill="none"/>
+
+        <!-- Stage 1: it existed -->
+        <g transform="translate(70,26)">
+          <rect class="st-1" x="0" y="0" width="120" height="52" rx="12" stroke-width="1.4"/>
+          <g transform="translate(20,12)" fill="none" class="ic-1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="14" cy="14" r="11"/><path d="M14 8v6l4 3"/>
+          </g>
+          <text class="cap" x="78" y="24" text-anchor="middle" style="fill:var(--accent)">It existed</text>
+          <text class="tnode" x="78" y="40" text-anchor="middle">MVCC history</text>
+        </g>
+
+        <!-- Stage 2: it's gone -->
+        <g transform="translate(320,26)">
+          <rect class="st-2" x="0" y="0" width="120" height="52" rx="12" stroke-width="1.4"/>
+          <g transform="translate(20,13)" fill="none" class="ic-2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 14s5-9 12-9 12 9 12 9-5 9-12 9-12-9-12-9z"/><circle cx="14" cy="14" r="3.4"/>
+          </g>
+          <text class="cap" x="78" y="24" text-anchor="middle" style="fill:var(--green)">It's gone</text>
+          <text class="tnode" x="78" y="40" text-anchor="middle">live-verified</text>
+        </g>
+
+        <!-- Stage 3: irreversible -->
+        <g transform="translate(570,26)">
+          <rect class="st-3" x="0" y="0" width="120" height="52" rx="12" stroke-width="1.4"/>
+          <g transform="translate(21,12)" fill="none" class="ic-3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="12" width="24" height="15" rx="2.5"/><path d="M7 12V8a7 7 0 0 1 14 0v4"/>
+          </g>
+          <text class="cap" x="78" y="24" text-anchor="middle" style="fill:var(--red)">Irreversible</text>
+          <text class="tnode" x="78" y="40" text-anchor="middle">key shredded</text>
+        </g>
+      </svg>
+
+      <div class="proofs">
+        <div class="card proof p1 reveal">
+          <div class="num">1</div>
+          <h3>It existed</h3>
+          <p>Reconstruct the memory as it stood the instant before deletion — straight from CockroachDB's MVCC history.</p>
+          <div class="code"><span class="hl">SELECT</span> * <span class="hl">FROM</span> memory<br /><span class="hl">AS OF SYSTEM TIME</span> t_before<br /><span class="hl">WHERE</span> subject = 'alice';<br />→ 6 entities recovered</div>
+          <div class="proof-verdict">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+            recovered from history
+          </div>
+        </div>
+        <div class="card proof p2 reveal d1">
+          <div class="num">2</div>
+          <h3>It's gone</h3>
+          <p>Query the live database the same way an agent would. Vector search and graph traversal both return nothing.</p>
+          <div class="code">vector_search('alice') → <span class="no">0 hits</span><br />graph_neighbors('alice') → <span class="no">∅</span><br />ask("what about alice?")<br />→ <span class="ok">"Nothing on record."</span></div>
+          <div class="proof-verdict">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            live-verified absence
+          </div>
+        </div>
+        <div class="card proof p3 reveal d2">
+          <div class="num">3</div>
+          <h3>It's irreversible</h3>
+          <p>The subject's data key is crypto-shredded and an object-locked S3 certificate is sealed. Residual ciphertext is unrecoverable — forever.</p>
+          <div class="code">crypto_shred(key:alice) → <span class="no">destroyed</span><br />s3://obliviate/certs/…<br /><span class="hl">object-lock:</span> COMPLIANCE<br />→ <span class="ok">certificate sealed</span></div>
+          <div class="proof-verdict">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            key shredded
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="block" id="features">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <p class="kicker">Capabilities</p>
+        <h2 class="sec-title">Built for forgetting that holds up</h2>
+        <p class="sec-sub">Every guarantee is enforced in the database, independent of which model does the thinking.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="card feat reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/><path d="M18 15l3 3-3 3"/></svg></div>
+          <h3>Atomic cross-store cascade</h3>
+          <p>Documents, graph nodes, edges, and vectors are erased in a single CockroachDB transaction. All or nothing — never a half-deleted memory.</p>
+        </div>
+        <div class="card feat reveal d1">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><path d="M7 7l3.5 4M17 7l-3.5 4"/></svg></div>
+          <h3>Shared-node safety</h3>
+          <p>Entities shared across subjects are retained for the survivors. Forget Alice and Acme Bank stays — because Bob still banks there.</p>
+        </div>
+        <div class="card feat reveal d2">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <h3>Crypto-shred</h3>
+          <p>Per-subject encryption keys are destroyed on erasure, rendering any lingering ciphertext in history, replicas, or backups permanently undecipherable.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+          <h3>Exhaustive blast-radius</h3>
+          <p>Before deleting, Obliviate maps every document, node, edge, and vector a subject touches — so you see exactly what an erasure will and won't remove.</p>
+        </div>
+        <div class="card feat reveal d1">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg></div>
+          <h3>Bring your own model</h3>
+          <p>Extraction and grounded answering run on any provider — Cerebras, Gemini, OpenAI, or a local Ollama. Forgetting is never coupled to a vendor.</p>
+        </div>
+        <div class="card feat reveal d2">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></div>
+          <h3>Tamper-evident certificates</h3>
+          <p>Each erasure seals an object-locked S3 certificate and a measured audit event — an immutable trail auditors and regulators can independently verify.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section class="stack" id="stack">
+    <div class="wrap">
+      <div class="stack-inner reveal">
+        <span class="stack-label">Built on</span>
+        <span class="stack-item"><b>CockroachDB</b></span>
+        <span class="stack-dot">·</span>
+        <span class="stack-item">Distributed Vector Index</span>
+        <span class="stack-dot">·</span>
+        <span class="stack-item">AS OF SYSTEM TIME</span>
+        <span class="stack-dot">·</span>
+        <span class="stack-item">Row-level TTL</span>
+        <span class="stack-dot">·</span>
+        <span class="stack-item">AWS Lambda + S3</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-band">
+    <div class="wrap">
+      <div class="card reveal">
+        <h2>See a memory forgotten — and proven gone</h2>
+        <p>Load the demo corpus, forget a subject, and watch the three-part proof assemble in real time.</p>
+        <div class="hero-cta">
+          <a class="btn primary big" href="/app">
+            Launch Console
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap foot-inner">
+    <span class="brand-row">
+      <span class="brand-mark" style="width:24px;height:24px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 4"/></svg>
+      </span>
+      <span class="brand-name">Obliviate</span>
+    </span>
+    <span class="sp"></span>
+    <span>MIT License</span>
+    <span class="stack-dot">·</span>
+    <span>Built for the CockroachDB&nbsp;×&nbsp;AWS hackathon</span>
+    <span class="stack-dot">·</span>
+    <a href="/app">Launch Console</a>
+  </div>
+</footer>
+
+<script>
+"use strict";
+(function(){
+  var root = document.documentElement;
+  var btn = document.getElementById('themeToggle');
+  var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var metaTheme = document.querySelector('meta[name="theme-color"]');
+  function apply(t){
+    root.setAttribute('data-theme', t);
+    try{ localStorage.setItem('obliviate.theme', t); }catch(e){}
+    if(btn) btn.innerHTML = (t==='light') ? MOON : SUN;
+    if(metaTheme) metaTheme.setAttribute('content', t==='light' ? '#f6f7f9' : '#0a0b0d');
+  }
+  var saved = null;
+  try{ saved = localStorage.getItem('obliviate.theme'); }catch(e){}
+  if(!saved){ try{ saved = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }catch(e){ saved='dark'; } }
+  apply(saved==='light' ? 'light' : 'dark');
+  btn && btn.addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme')==='light' ? 'light' : 'dark';
+    apply(cur==='light' ? 'dark' : 'light');
+  });
+  try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
+    var s=null; try{ s=localStorage.getItem('obliviate.theme'); }catch(_){}
+    if(!s) apply(e.matches ? 'dark' : 'light');
+  }); }catch(e){}
+
+  // Scroll entrance animations
+  var items = document.querySelectorAll('.reveal:not(.in)');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, { threshold:0.12, rootMargin:'0px 0px -8% 0px' });
+    items.forEach(function(el){ io.observe(el); });
+  } else {
+    items.forEach(function(el){ el.classList.add('in'); });
+  }
+})();
+</script>
+</body>
+</html>

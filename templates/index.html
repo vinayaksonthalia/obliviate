@@ -4,10 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Obliviate — Verifiable forgetting for AI-agent memory</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%235b68e8'/%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a7 7 0 1 0 7 7'/%3E%3Cpath d='M12 5v7l5 3'/%3E%3C/g%3E%3C/svg%3E" />
+<meta name="theme-color" content="#0a0b0d" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script src="https://unpkg.com/force-graph@1.43.5/dist/force-graph.min.js"></script>
 <style>
   :root{
     --bg: #0a0b0d;
@@ -32,6 +34,54 @@
     --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 30px rgba(0,0,0,.35);
     --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* themed surfaces */
+    --sidebar-bg: linear-gradient(180deg,#0c0d10,#0a0b0d);
+    --topbar-bg: rgba(10,11,13,.72);
+    --scroll-thumb: #20232b;
+    --scroll-thumb-hover: #2b2f39;
+    /* graph canvas */
+    --graph-bg-1: #0e1014;
+    --graph-bg-2: #0a0b0d;
+    --graph-edge: #2b2f39;
+    --graph-edge-hi: #7c8cff;
+    --graph-ghost: #3a3d45;
+    --graph-ring: #e7e9ee;
+    --graph-node-stroke: #0a0b0d;
+    --graph-label: #e7e9ee;
+    --graph-label-bg: rgba(10,11,13,.82);
+  }
+  :root[data-theme="light"]{
+    --bg: #f6f7f9;
+    --bg-elev: #ffffff;
+    --panel: #ffffff;
+    --panel-2: #f1f3f6;
+    --border: #e3e6ec;
+    --border-soft: #eceef2;
+    --text: #191c22;
+    --text-dim: #59606d;
+    --text-faint: #8b919d;
+    --accent: #5b68e8;
+    --accent-soft: rgba(91,104,232,.12);
+    --accent-line: rgba(91,104,232,.32);
+    --green: #10a271;
+    --green-soft: rgba(16,162,113,.12);
+    --amber: #b9791a;
+    --red: #e14b4b;
+    --red-soft: rgba(225,75,75,.1);
+    --shadow: 0 1px 2px rgba(20,24,33,.05), 0 10px 28px rgba(20,24,33,.07);
+    --sidebar-bg: linear-gradient(180deg,#fbfbfd,#f4f5f8);
+    --topbar-bg: rgba(246,247,249,.78);
+    --scroll-thumb: #d3d7de;
+    --scroll-thumb-hover: #c1c6cf;
+    --graph-bg-1: #ffffff;
+    --graph-bg-2: #eef0f4;
+    --graph-edge: #d3d7de;
+    --graph-edge-hi: #5b68e8;
+    --graph-ghost: #c3c7cf;
+    --graph-ring: #3a4150;
+    --graph-node-stroke: #ffffff;
+    --graph-label: #2a2f38;
+    --graph-label-bg: rgba(255,255,255,.85);
   }
   *{ box-sizing:border-box; }
   html,body{ height:100%; }
@@ -40,17 +90,21 @@
     font-family:var(--sans); font-size:14px; line-height:1.5;
     -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
     letter-spacing:-0.01em;
+    transition:background-color .32s ease, color .32s ease;
+  }
+  .card, .sidebar, .topbar, input, textarea, select, .btn, #cy, .receipt, .proof, .stat, .chip{
+    transition:background-color .32s ease, border-color .32s ease, color .32s ease, box-shadow .32s ease;
   }
   a{ color:inherit; }
   ::selection{ background:var(--accent-soft); }
   ::-webkit-scrollbar{ width:10px; height:10px; }
-  ::-webkit-scrollbar-thumb{ background:#20232b; border-radius:20px; border:2px solid var(--bg); }
-  ::-webkit-scrollbar-thumb:hover{ background:#2b2f39; }
+  ::-webkit-scrollbar-thumb{ background:var(--scroll-thumb); border-radius:20px; border:2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover{ background:var(--scroll-thumb-hover); }
 
   /* ---------- Layout ---------- */
   .app{ display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
   .sidebar{
-    background:linear-gradient(180deg,#0c0d10,#0a0b0d);
+    background:var(--sidebar-bg);
     border-right:1px solid var(--border-soft);
     display:flex; flex-direction:column; position:sticky; top:0; height:100vh;
   }
@@ -72,7 +126,8 @@
     border:1px solid transparent; transition:background .12s, color .12s, border-color .12s;
   }
   .nav-item:hover{ background:var(--panel); color:var(--text); }
-  .nav-item.active{ background:var(--accent-soft); color:#fff; border-color:var(--accent-line); }
+  .nav-item.active{ background:var(--accent-soft); color:var(--text); border-color:var(--accent-line); }
+  .nav-item.active svg{ color:var(--accent); opacity:1; }
   .nav-item svg{ width:17px; height:17px; opacity:.85; flex:0 0 auto; }
   .nav-item.hero .dot{ margin-left:auto; width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
   .sidebar-foot{ margin-top:auto; padding:14px 16px; border-top:1px solid var(--border-soft); color:var(--text-faint); font-size:11px; display:flex; align-items:center; gap:8px; }
@@ -83,7 +138,7 @@
   .main{ display:flex; flex-direction:column; min-width:0; }
   .topbar{
     position:sticky; top:0; z-index:20; backdrop-filter:blur(12px);
-    background:rgba(10,11,13,.72); border-bottom:1px solid var(--border-soft);
+    background:var(--topbar-bg); border-bottom:1px solid var(--border-soft);
     padding:16px 28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
   }
   .topbar h1{ font-size:16px; font-weight:600; margin:0; letter-spacing:-0.02em; }
@@ -172,8 +227,20 @@
   .ent b{ color:var(--accent); font-weight:500; }
 
   /* ---------- Graph ---------- */
-  #cy{ height:560px; width:100%; border-radius:var(--radius); background:
-      radial-gradient(circle at 50% 40%, #0e1014, #0a0b0d 80%); border:1px solid var(--border); }
+  #cy{ height:560px; width:100%; border-radius:var(--radius); overflow:hidden; background:
+      radial-gradient(circle at 50% 40%, var(--graph-bg-1), var(--graph-bg-2) 82%); border:1px solid var(--border); position:relative; }
+  #cy canvas{ display:block; }
+  .graph-hint{ position:absolute; left:14px; bottom:12px; z-index:2; font-size:11px; color:var(--text-faint); font-family:var(--mono); background:var(--graph-label-bg); padding:4px 9px; border-radius:20px; border:1px solid var(--border-soft); pointer-events:none; }
+
+  /* ---------- Theme toggle ---------- */
+  .theme-toggle{
+    display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 auto;
+    border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--panel-2); color:var(--text-dim);
+    cursor:pointer; transition:all .15s;
+  }
+  .theme-toggle:hover{ color:var(--text); border-color:#31353f; }
+  :root[data-theme="light"] .theme-toggle:hover{ border-color:#cdd1d8; }
+  .theme-toggle svg{ width:17px; height:17px; }
   .legend{ display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; color:var(--text-dim); font-size:12px; }
   .legend .li{ display:flex; align-items:center; gap:7px; }
   .swatch{ width:11px; height:11px; border-radius:50%; }
@@ -259,6 +326,92 @@
 
   .pill-note{ font-size:12px; color:var(--amber); background:rgba(245,179,74,.1); border:1px solid rgba(245,179,74,.3); padding:8px 12px; border-radius:8px; margin-top:12px; display:none; }
 
+  /* ---------- Focus ring (keyboard only) ---------- */
+  :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+  .btn:focus-visible, .nav-item:focus-visible, .ws-btn:focus-visible{ outline-offset:2px; }
+
+  /* ---------- Workspace switcher ---------- */
+  .ws-switch{ position:relative; padding:2px 12px 12px; }
+  .ws-btn{ width:100%; display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer; font-family:inherit; transition:border-color .14s, background .14s; }
+  .ws-btn:hover{ border-color:var(--accent-line); background:var(--panel-2); }
+  .ws-avatar{ width:24px; height:24px; border-radius:7px; flex:0 0 auto; display:grid; place-items:center; font-size:11px; font-weight:600; font-family:var(--mono); background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line); text-transform:uppercase; }
+  .ws-name{ font-weight:550; font-size:13px; flex:1; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-0.01em; }
+  .ws-btn .chev{ width:14px; height:14px; flex:0 0 auto; color:var(--text-faint); transition:transform .2s cubic-bezier(.16,1,.3,1); }
+  .ws-btn[aria-expanded="true"] .chev{ transform:rotate(180deg); }
+  .ws-menu{ position:absolute; left:12px; right:12px; top:calc(100% - 4px); z-index:60; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow); padding:6px; animation:wsIn .16s cubic-bezier(.16,1,.3,1); }
+  @keyframes wsIn{ from{ opacity:0; transform:translateY(-5px);} to{ opacity:1; transform:none;} }
+  .ws-list{ display:flex; flex-direction:column; gap:2px; max-height:250px; overflow-y:auto; }
+  .ws-row{ display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px; cursor:pointer; color:var(--text-dim); }
+  .ws-row:hover{ background:var(--panel-2); color:var(--text); }
+  .ws-row.active{ color:var(--text); }
+  .ws-row .nm{ flex:1; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ws-row .tick{ width:15px; height:15px; flex:0 0 auto; color:var(--accent); }
+  .ws-row .del{ width:24px; height:24px; flex:0 0 auto; border-radius:6px; display:grid; place-items:center; color:var(--text-faint); border:0; background:transparent; cursor:pointer; opacity:0; transition:opacity .12s, color .12s, background .12s; }
+  .ws-row .del svg{ width:13px; height:13px; }
+  .ws-row:hover .del{ opacity:1; }
+  .ws-row .del:hover{ color:var(--red); background:var(--red-soft); }
+  .ws-menu-sep{ height:1px; background:var(--border-soft); margin:6px 4px; }
+  .ws-new{ width:100%; display:flex; align-items:center; gap:9px; padding:8px; border:0; background:transparent; color:var(--accent); font-family:inherit; font-size:13px; font-weight:550; border-radius:7px; cursor:pointer; }
+  .ws-new:hover{ background:var(--accent-soft); }
+  .ws-new svg{ width:15px; height:15px; }
+
+  /* ---------- Onboarding card ---------- */
+  .onboard{ position:relative; border:1px solid var(--accent-line); background:linear-gradient(180deg, var(--accent-soft), transparent 90%); border-radius:var(--radius); padding:20px 20px 22px; margin-bottom:18px; overflow:hidden; }
+  .onboard h3{ margin:0 0 4px; font-size:16px; font-weight:600; letter-spacing:-0.02em; }
+  .onboard .sub{ color:var(--text-dim); font-size:13px; margin:0 0 16px; max-width:560px; }
+  .onboard-steps{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media(max-width:900px){ .onboard-steps{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:520px){ .onboard-steps{ grid-template-columns:1fr; } }
+  .ob-step{ text-align:left; display:flex; flex-direction:column; gap:9px; padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--panel); cursor:pointer; font-family:inherit; color:inherit; transition:transform .22s cubic-bezier(.16,1,.3,1), border-color .14s, box-shadow .22s ease; }
+  .ob-step:hover{ transform:translateY(-3px); border-color:var(--accent-line); box-shadow:var(--shadow); }
+  .ob-step:active{ transform:translateY(-1px); }
+  .ob-step .n{ width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-family:var(--mono); font-size:12px; font-weight:600; background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line); }
+  .ob-step .t{ font-weight:600; font-size:13.5px; letter-spacing:-0.01em; }
+  .ob-step .d{ font-size:12px; color:var(--text-dim); line-height:1.45; }
+  .onboard-x{ position:absolute; top:12px; right:12px; width:28px; height:28px; border-radius:7px; border:1px solid transparent; background:transparent; color:var(--text-faint); cursor:pointer; display:grid; place-items:center; transition:all .14s; }
+  .onboard-x:hover{ background:var(--panel-2); color:var(--text); border-color:var(--border); }
+  .onboard-x svg{ width:15px; height:15px; }
+
+  /* ---------- Chat layout + thread rail ---------- */
+  .chat-layout{ display:grid; grid-template-columns:230px 1fr; gap:16px; align-items:stretch; }
+  @media(max-width:860px){ .chat-layout{ grid-template-columns:1fr; } }
+  .thread-rail{ display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .thread-list{ display:flex; flex-direction:column; gap:3px; overflow-y:auto; max-height:calc(100vh - 320px); }
+  @media(max-width:860px){ .thread-list{ max-height:200px; } }
+  .thread-item{ display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:8px; cursor:pointer; color:var(--text-dim); border:1px solid transparent; transition:background .12s, color .12s, border-color .12s; }
+  .thread-item:hover{ background:var(--panel); color:var(--text); }
+  .thread-item.active{ background:var(--accent-soft); color:var(--text); border-color:var(--accent-line); }
+  .thread-item .tt{ flex:1; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-0.01em; }
+  .thread-item .x{ width:22px; height:22px; flex:0 0 auto; border-radius:5px; border:0; background:transparent; color:var(--text-faint); cursor:pointer; display:grid; place-items:center; opacity:0; transition:opacity .12s, color .12s, background .12s; }
+  .thread-item .x svg{ width:12px; height:12px; }
+  .thread-item:hover .x, .thread-item.active .x{ opacity:1; }
+  .thread-item .x:hover{ color:var(--red); background:var(--red-soft); }
+  .thread-empty{ color:var(--text-faint); font-size:12px; padding:12px 6px; text-align:center; line-height:1.5; }
+  .rail-label{ color:var(--text-faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:600; padding:2px 4px; }
+
+  /* ---------- Upload dropzone ---------- */
+  .dropzone{ border:1.5px dashed var(--border); border-radius:var(--radius-sm); padding:22px 16px; text-align:center; cursor:pointer; transition:border-color .16s, background .16s; background:var(--bg-elev); margin-bottom:16px; }
+  .dropzone:hover{ border-color:var(--accent-line); }
+  .dropzone.drag{ border-color:var(--accent); background:var(--accent-soft); }
+  .dropzone svg{ width:26px; height:26px; color:var(--text-faint); margin-bottom:8px; }
+  .dropzone.drag svg{ color:var(--accent); }
+  .dropzone .dz-t{ font-size:13px; font-weight:550; letter-spacing:-0.01em; }
+  .dropzone .dz-t .dz-file{ color:var(--accent); }
+  .dropzone .dz-s{ font-size:11.5px; color:var(--text-faint); margin-top:3px; }
+  .divider-or{ display:flex; align-items:center; gap:12px; color:var(--text-faint); font-size:11px; font-family:var(--mono); text-transform:uppercase; letter-spacing:.08em; margin:2px 0 14px; }
+  .divider-or::before, .divider-or::after{ content:""; flex:1; height:1px; background:var(--border-soft); }
+
+  /* ---------- Certificate link ---------- */
+  a.cert-link, a.cert-link:link, a.cert-link:visited{ display:inline-flex; align-items:center; gap:6px; margin-top:12px; font-size:12.5px; font-weight:600; color:var(--accent); text-decoration:none; letter-spacing:-0.01em; }
+  a.cert-link:hover, a.cert-link:active{ color:var(--accent); text-decoration:underline; }
+  a.cert-link svg{ width:14px; height:14px; }
+  a.cert-link.mini{ margin-top:0; font-size:12px; }
+
+  @media(prefers-reduced-motion:reduce){
+    *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+    .view{ animation:none; }
+  }
+
   @media(max-width:760px){
     .app{ grid-template-columns:1fr; }
     .sidebar{ position:relative; height:auto; flex-direction:column; }
@@ -284,6 +437,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Workspace switcher -->
+    <div class="ws-switch" id="wsSwitch">
+      <button class="ws-btn" id="wsBtn" aria-haspopup="listbox" aria-expanded="false" aria-label="Switch workspace">
+        <span class="ws-avatar" id="wsAvatar">D</span>
+        <span class="ws-name" id="wsName">Default</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="ws-menu hidden" id="wsMenu" role="listbox" aria-label="Workspaces">
+        <div class="ws-list" id="wsList"></div>
+        <div class="ws-menu-sep"></div>
+        <button class="ws-new" id="wsNew">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          New workspace
+        </button>
+      </div>
+    </div>
+
     <nav class="nav" id="nav">
       <div class="nav-label">Console</div>
       <div class="nav-item active" data-view="memory">
@@ -333,6 +504,7 @@
         <span class="chip">AS OF SYSTEM TIME</span>
         <span class="chip">AWS Lambda + S3</span>
       </div>
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme" aria-label="Toggle light or dark theme"></button>
     </header>
 
     <!-- ===================== MEMORY / CHAT ===================== -->
@@ -341,25 +513,67 @@
         <h2>Memory</h2>
         <p>Ask the agent about its records. Answers are grounded strictly in what's stored — when it has nothing on record, it says so. That's the honesty guarantee.</p>
       </div>
-      <div class="card card-p chat-wrap">
-        <div class="chat-scroll" id="chatScroll">
-          <div class="chat-empty" id="chatEmpty">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            <h3>Ask the agent's memory</h3>
-            <p class="faint">Grounded, retrieval-backed answers from the knowledge graph and vector store.</p>
-            <div class="suggest" id="suggest">
-              <button class="btn ghost" data-q="What do you know about Alice?">What do you know about Alice?</button>
-              <button class="btn ghost" data-q="Which customers bank with Acme Bank?">Which customers bank with Acme Bank?</button>
-              <button class="btn ghost" data-q="Tell me about Bob's accounts.">Tell me about Bob's accounts.</button>
+
+      <!-- Onboarding card (dismissible) -->
+      <div class="onboard hidden" id="onboard">
+        <button class="onboard-x" id="onboardDismiss" aria-label="Dismiss getting started">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <h3>Getting started</h3>
+        <p class="sub">Four steps to see verifiable forgetting end to end — from empty memory to cryptographic proof of erasure.</p>
+        <div class="onboard-steps">
+          <button class="ob-step" id="obDemo">
+            <span class="n">1</span>
+            <span class="t">Load demo data</span>
+            <span class="d">Ingest a small corpus — Alice &amp; Bob, who share Acme Bank.</span>
+          </button>
+          <button class="ob-step" id="obAsk">
+            <span class="n">2</span>
+            <span class="t">Ask a question</span>
+            <span class="d">Query the agent's memory with a grounded, retrieval-backed answer.</span>
+          </button>
+          <button class="ob-step" id="obForget">
+            <span class="n">3</span>
+            <span class="t">Forget &amp; prove</span>
+            <span class="d">Erase a subject and watch the three-part proof assemble.</span>
+          </button>
+          <button class="ob-step" id="obGraph">
+            <span class="n">4</span>
+            <span class="t">Explore the graph</span>
+            <span class="d">See entities, relationships, and ghosted tombstones.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="chat-layout">
+        <aside class="thread-rail">
+          <button class="btn primary thread-new" id="threadNew">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            New chat
+          </button>
+          <div class="rail-label">Chats</div>
+          <div class="thread-list" id="threadList"></div>
+        </aside>
+        <div class="card card-p chat-wrap">
+          <div class="chat-scroll" id="chatScroll">
+            <div class="chat-empty" id="chatEmpty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <h3>Ask the agent's memory</h3>
+              <p class="faint">Grounded, retrieval-backed answers from the knowledge graph and vector store.</p>
+              <div class="suggest" id="suggest">
+                <button class="btn ghost" data-q="What do you know about Alice?">What do you know about Alice?</button>
+                <button class="btn ghost" data-q="Which customers bank with Acme Bank?">Which customers bank with Acme Bank?</button>
+                <button class="btn ghost" data-q="Tell me about Bob's accounts.">Tell me about Bob's accounts.</button>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="chat-input">
-          <textarea id="chatInput" rows="1" placeholder="Ask about a customer, entity, or relationship…"></textarea>
-          <button class="btn primary" id="chatSend">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-            Send
-          </button>
+          <div class="chat-input">
+            <textarea id="chatInput" rows="1" placeholder="Ask about a customer, entity, or relationship…"></textarea>
+            <button class="btn primary" id="chatSend">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              Send
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -380,6 +594,15 @@
             </button>
           </div>
           <label class="field"><span>Subject</span><input type="text" id="inSubject" placeholder="e.g. alice" /></label>
+
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload a file to ingest">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+            <div class="dz-t" id="dzTitle">Drop a file, or <span class="dz-file">browse</span></div>
+            <div class="dz-s">.txt · .md · .json · .csv · .log</div>
+            <input type="file" id="fileInput" accept=".txt,.md,.json,.csv,.log,text/plain" style="display:none" />
+          </div>
+          <div class="divider-or">or paste text</div>
+
           <label class="field"><span>Title</span><input type="text" id="inTitle" placeholder="e.g. Onboarding note" /></label>
           <label class="field"><span>Text</span><textarea id="inText" placeholder="Alice opened a checking account at Acme Bank in 2021…"></textarea></label>
           <button class="btn primary" id="ingestBtn">
@@ -417,7 +640,7 @@
         </button>
       </div>
       <div class="card" style="padding:6px;">
-        <div id="cy"></div>
+        <div id="cy"><div class="graph-hint" id="graphHint">drag to reposition · scroll to zoom · hover to focus</div></div>
       </div>
       <div class="legend" id="graphLegend">
         <div class="li"><span class="swatch" style="background:#6b7280"></span> Loading…</div>
@@ -529,6 +752,17 @@
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt!=null) e.textContent = txt; return e; };
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s==null? '' : String(s); return d.innerHTML; };
 
+  // ---------- workspace plumbing (every request is scoped) ----------
+  const WS_KEY = 'obliviate.ws';
+  let WS = 'default';
+  try{ WS = localStorage.getItem(WS_KEY) || 'default'; }catch(_){}
+  let WORKSPACES = [{ id:'default', name:'Default' }];
+  function saveWs(id){ WS = id; try{ localStorage.setItem(WS_KEY, id); }catch(_){} }
+  // add active workspace to a JSON body
+  function wsBody(obj){ return JSON.stringify(Object.assign({ workspace: WS }, obj||{})); }
+  // add ?workspace=<id> to a GET path
+  function qWs(path){ return path + (path.indexOf('?')>=0 ? '&' : '?') + 'workspace=' + encodeURIComponent(WS); }
+
   async function api(path, opts){
     const res = await fetch(path, Object.assign({ headers:{'Content-Type':'application/json'} }, opts));
     if(!res.ok){ const e = new Error('HTTP '+res.status); e.status = res.status; throw e; }
@@ -562,15 +796,74 @@
     const item = e.target.closest('.nav-item'); if(item) switchView(item.dataset.view);
   });
 
-  // ---------- MEMORY / CHAT ----------
-  const history = [];
+  // ---------- MEMORY / CHAT (client-side threads, scoped per workspace) ----------
   const chatScroll = $('#chatScroll');
   const chatInput = $('#chatInput');
+  const CHAT_EMPTY_HTML = $('#chatEmpty') ? $('#chatEmpty').outerHTML : '';
 
   function autoGrow(t){ t.style.height='auto'; t.style.height = Math.min(t.scrollHeight, 160)+'px'; }
   chatInput.addEventListener('input', ()=>autoGrow(chatInput));
 
-  function addMsg(role, text){
+  // ---- thread store ----
+  const threadsKey = () => 'obliviate.threads.' + WS;
+  const activeKey  = () => 'obliviate.active.' + WS;
+  let threads = [];
+  let activeId = null;
+
+  function readThreads(){ try{ const a = JSON.parse(localStorage.getItem(threadsKey())||'[]'); return Array.isArray(a)?a:[]; }catch(_){ return []; } }
+  function writeThreads(){ try{ localStorage.setItem(threadsKey(), JSON.stringify(threads.slice(0,50))); }catch(_){} }
+  function readActive(){ try{ return localStorage.getItem(activeKey()); }catch(_){ return null; } }
+  function writeActive(id){ activeId = id; try{ if(id) localStorage.setItem(activeKey(), id); else localStorage.removeItem(activeKey()); }catch(_){} }
+  function uid(){ return 't-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7); }
+  function activeThread(){ return threads.find(t => t.id === activeId) || null; }
+
+  function makeThread(){
+    const t = { id: uid(), title: 'New chat', msgs: [] };
+    threads.unshift(t); if(threads.length>50) threads = threads.slice(0,50);
+    writeThreads(); writeActive(t.id);
+    return t;
+  }
+
+  function renderThreadList(){
+    const box = $('#threadList'); if(!box) return;
+    box.innerHTML = '';
+    if(!threads.length){
+      const e = el('div','thread-empty'); e.textContent = 'No chats yet. Start one to ask the agent’s memory.';
+      box.appendChild(e); return;
+    }
+    threads.forEach(t => {
+      const item = el('div', 'thread-item' + (t.id===activeId?' active':''));
+      item.dataset.id = t.id;
+      const tt = el('span','tt'); tt.textContent = t.title || 'New chat';
+      const x = el('button','x'); x.setAttribute('aria-label','Delete chat');
+      x.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+      x.addEventListener('click', ev => { ev.stopPropagation(); deleteThread(t.id); });
+      item.appendChild(tt); item.appendChild(x);
+      item.addEventListener('click', () => switchThread(t.id));
+      box.appendChild(item);
+    });
+  }
+
+  function renderMessages(){
+    chatScroll.innerHTML = '';
+    const t = activeThread();
+    if(!t || !t.msgs.length){
+      if(CHAT_EMPTY_HTML) chatScroll.innerHTML = CHAT_EMPTY_HTML;
+      return;
+    }
+    t.msgs.forEach(m => paintMsg(m.role, m.content));
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  function switchThread(id){ writeActive(id); renderThreadList(); renderMessages(); }
+  function deleteThread(id){
+    threads = threads.filter(t => t.id !== id);
+    if(activeId === id){ writeActive(threads.length ? threads[0].id : null); }
+    writeThreads(); renderThreadList(); renderMessages();
+  }
+
+  // paint one message bubble (no persistence)
+  function paintMsg(role, text){
     const empty = $('#chatEmpty'); if(empty) empty.remove();
     const wrap = el('div', 'msg ' + (role==='user'?'user':'ai'));
     const av = el('div', 'avatar ' + (role==='user'?'me':'ai'));
@@ -592,20 +885,31 @@
 
   async function sendChat(text){
     text = (text||'').trim(); if(!text) return;
-    addMsg('user', text);
-    history.push({role:'user', content:text});
+    let t = activeThread(); if(!t){ t = makeThread(); renderThreadList(); }
+    // first user turn names the thread
+    if(!t.msgs.some(m => m.role==='user')){
+      t.title = text.slice(0,64) + (text.length>64 ? '…' : '');
+    }
+    paintMsg('user', text);
+    t.msgs.push({ role:'user', content:text });
+    writeThreads(); renderThreadList();
     chatInput.value=''; autoGrow(chatInput);
     $('#chatSend').disabled = true;
     addTyping();
     try{
-      const data = await api('/api/ask', { method:'POST', body: JSON.stringify({ query:text, history }) });
+      const history = t.msgs.slice(-6).map(m => ({ role:m.role, content:m.content }));
+      const data = await api('/api/ask', { method:'POST', body: wsBody({ query:text, history }) });
       const ans = (data && data.answer!=null) ? data.answer : '(no answer)';
+      const sources = (data && Array.isArray(data.sources)) ? data.sources : undefined;
       $('#typingMsg') && $('#typingMsg').remove();
-      addMsg('ai', ans);
-      history.push({role:'assistant', content:ans});
+      paintMsg('ai', ans);
+      const rec = { role:'assistant', content:ans }; if(sources) rec.sources = sources;
+      t.msgs.push(rec); writeThreads();
     }catch(err){
       $('#typingMsg') && $('#typingMsg').remove();
-      addMsg('ai', 'The memory service is unavailable right now. ('+ (err.status||'network') +')');
+      const msg = 'The memory service is unavailable right now. ('+ (err.status||'network') +')';
+      paintMsg('ai', msg);
+      t.msgs.push({ role:'assistant', content:msg }); writeThreads();
       toast('Ask failed: '+(err.status||'network error'), 'err');
     }finally{
       $('#chatSend').disabled = false; chatInput.focus();
@@ -614,6 +918,15 @@
   $('#chatSend').addEventListener('click', ()=>sendChat(chatInput.value));
   chatInput.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(chatInput.value); } });
   $('#suggest') && $('#suggest').addEventListener('click', e => { const b=e.target.closest('button'); if(b) sendChat(b.dataset.q); });
+  $('#threadNew').addEventListener('click', () => { makeThread(); renderThreadList(); renderMessages(); chatInput.focus(); });
+
+  // load threads for the active workspace (called on boot + on ws switch)
+  function loadThreadsForWs(){
+    threads = readThreads();
+    activeId = readActive();
+    if(activeId && !threads.some(t => t.id===activeId)) activeId = threads.length ? threads[0].id : null;
+    renderThreadList(); renderMessages();
+  }
 
   // ---------- RECORDS ----------
   let receiptCount = 0;
@@ -655,11 +968,48 @@
   }
 
   async function ingest(subject, title, text, quiet){
-    const data = await api('/api/ingest', { method:'POST', body: JSON.stringify({ subject, title, text }) });
+    const data = await api('/api/ingest', { method:'POST', body: wsBody({ subject, title, text }) });
     renderReceipt(Object.assign({ subject }, data));
     if(!quiet) toast('Record ingested: '+subject, 'ok');
     loaded.subjects = false; // subjects changed
     return data;
+  }
+
+  // ---------- UPLOAD (multipart → /api/upload) ----------
+  const dropzone = $('#dropzone');
+  const fileInput = $('#fileInput');
+  const ACCEPT = ['txt','md','json','csv','log'];
+
+  async function uploadFile(f){
+    if(!f) return;
+    const ext = (f.name.split('.').pop()||'').toLowerCase();
+    if(!ACCEPT.includes(ext)){ toast('Unsupported file type: .'+ext, 'err'); return; }
+    if(f.size > 5*1024*1024){ toast('File too large (max 5 MB)', 'err'); return; }
+    const subject = ($('#inSubject').value.trim()) || f.name.replace(/\.[^.]+$/,'').slice(0,80);
+    const dzt = $('#dzTitle'); const orig = dzt.innerHTML;
+    dzt.innerHTML = 'Uploading <span class="dz-file">'+esc(f.name)+'</span>…';
+    try{
+      const fd = new FormData();
+      fd.append('file', f, f.name);
+      fd.append('subject', subject);
+      fd.append('workspace', WS);
+      const res = await fetch('/api/upload', { method:'POST', body: fd });
+      if(!res.ok){ const e=new Error('HTTP '+res.status); e.status=res.status; throw e; }
+      const data = await res.json();
+      renderReceipt(Object.assign({ subject }, data));
+      toast('Uploaded & ingested: '+f.name, 'ok');
+      loaded.subjects=false; loadSubjects();
+    }catch(err){ toast('Upload failed: '+(err.status||'network'), 'err'); }
+    finally{ dzt.innerHTML = orig; }
+  }
+
+  if(dropzone){
+    dropzone.addEventListener('click', ()=>fileInput.click());
+    dropzone.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); fileInput.click(); } });
+    fileInput.addEventListener('change', ()=>{ if(fileInput.files[0]) uploadFile(fileInput.files[0]); fileInput.value=''; });
+    ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.add('drag'); }));
+    ['dragleave','dragend'].forEach(ev => dropzone.addEventListener(ev, e=>{ e.preventDefault(); dropzone.classList.remove('drag'); }));
+    dropzone.addEventListener('drop', e=>{ e.preventDefault(); dropzone.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) uploadFile(f); });
   }
 
   $('#ingestBtn').addEventListener('click', async ()=>{
@@ -686,8 +1036,8 @@
     { subject:'bob', title:'Bob — credit line',
       text:'Bob Carter secured a business line of credit from Acme Bank in 2023. His relationship manager at Acme Bank is Priya Shah.' }
   ];
-  $('#loadDemo').addEventListener('click', async ()=>{
-    const btn = $('#loadDemo'); btn.disabled=true;
+  async function runDemo(){
+    const btn = $('#loadDemo'); if(btn) btn.disabled=true;
     const note = $('#demoNote'); note.style.display='block'; note.style.color='var(--text-dim)';
     note.style.background='var(--bg-elev)'; note.style.borderColor='var(--border)';
     try{
@@ -698,13 +1048,14 @@
       toast('Demo corpus loaded', 'ok');
       loaded.subjects=false; loadSubjects();
     }catch(err){ note.textContent='Demo load failed: '+(err.status||'network error'); note.style.color='var(--red)'; toast('Demo failed','err'); }
-    finally{ btn.disabled=false; }
-  });
+    finally{ if(btn) btn.disabled=false; }
+  }
+  $('#loadDemo').addEventListener('click', runDemo);
 
   // ---------- SUBJECTS ----------
   async function loadSubjects(){
     try{
-      const subs = await api('/api/subjects');
+      const subs = await api(qWs('/api/subjects'));
       loaded.subjects = true;
       const sel = $('#forgetSubject');
       if(Array.isArray(subs) && subs.length){
@@ -716,7 +1067,7 @@
     }catch(err){ /* leave placeholder */ }
   }
 
-  // ---------- GRAPH ----------
+  // ---------- GRAPH (Obsidian-style continuous physics via force-graph) ----------
   const SUBJECT_COLORS = ['#7c8cff','#3ecf8e','#f5b34a','#ff8fab','#59c1e8','#c58bff','#e8a35a'];
   const colorCache = {};
   function subjectColor(sub){
@@ -724,60 +1075,219 @@
     if(!(sub in colorCache)){ colorCache[sub] = SUBJECT_COLORS[Object.keys(colorCache).length % SUBJECT_COLORS.length]; }
     return colorCache[sub];
   }
-  let cy = null;
+
+  // Live theme snapshot for the canvas — refreshed on load & on theme toggle.
+  function computeGraphTheme(){
+    const cs = getComputedStyle(document.documentElement);
+    const g = (name, fb) => { const v = cs.getPropertyValue(name).trim(); return v || fb; };
+    return {
+      edge: g('--graph-edge','#2b2f39'),
+      edgeHi: g('--graph-edge-hi','#7c8cff'),
+      ghost: g('--graph-ghost','#3a3d45'),
+      ring: g('--graph-ring','#e7e9ee'),
+      stroke: g('--graph-node-stroke','#0a0b0d'),
+      label: g('--graph-label','#e7e9ee'),
+      labelBg: g('--graph-label-bg','rgba(10,11,13,.82)'),
+    };
+  }
+  let TH = computeGraphTheme();
+
+  let graph = null;
+  let graphData = { nodes:[], links:[] };
+  let hoverNode = null;
+  const hlNodes = new Set();
+  const hlLinks = new Set();
+
+  function graphOnResize(){
+    if(graph){ const c = $('#cy'); const w = c.clientWidth; if(w>0) graph.width(w).height(c.clientHeight || 560); }
+  }
+  window.addEventListener('resize', graphOnResize);
+
   async function loadGraph(){
     let data;
-    try{ data = await api('/api/graph'); }
+    try{ data = await api(qWs('/api/graph')); }
     catch(err){ toast('Graph unavailable: '+(err.status||'network'), 'err'); return; }
-    const nodes = (data.nodes||[]).map(n => {
+
+    const rawNodes = (data.nodes||[]).map(n => {
       const subs = Array.isArray(n.subjects) ? n.subjects : (n.subjects? [n.subjects] : []);
-      const primary = subs[0];
-      return { data:{ id:String(n.id), label:n.name||n.id, type:n.type||'', deleted:!!n.deleted, color: n.deleted? '#3a3d45' : subjectColor(primary), shared: subs.length>1 } };
+      return {
+        id: String(n.id), name: n.name || String(n.id), type: n.type || '',
+        deleted: !!n.deleted, shared: subs.length > 1,
+        subject: subs[0] || null, color: n.deleted ? null : subjectColor(subs[0]),
+        deg: 0
+      };
     });
-    const nodeIds = new Set(nodes.map(n=>n.data.id));
-    const edges = (data.edges||[]).filter(e => nodeIds.has(String(e.source)) && nodeIds.has(String(e.target)))
-      .map((e,i) => ({ data:{ id:'e'+i, source:String(e.source), target:String(e.target), label:e.rel||'' } }));
+    const byId = new Map(rawNodes.map(n => [n.id, n]));
+    const rawLinks = (data.edges||[])
+      .filter(e => byId.has(String(e.source)) && byId.has(String(e.target)))
+      .map(e => ({ source:String(e.source), target:String(e.target), rel: e.rel || '' }));
+    rawLinks.forEach(l => { byId.get(l.source).deg++; byId.get(l.target).deg++; });
 
-    if(cy){ cy.destroy(); cy=null; }
-    if(!nodes.length){
-      $('#cy').innerHTML = '<div class="empty" style="padding-top:220px;">No graph yet. Ingest records or load demo data in <b>Records</b>.</div>';
-      $('#graphLegend').innerHTML=''; return;
-    }
-    cy = cytoscape({
-      container: $('#cy'),
-      elements: { nodes, edges },
-      style: [
-        { selector:'node', style:{
-          'background-color':'data(color)', 'label':'data(label)', 'color':'#e7e9ee',
-          'font-size':'11px', 'font-family':"'Inter',sans-serif", 'font-weight':500,
-          'text-valign':'bottom', 'text-margin-y':6, 'width':30, 'height':30,
-          'border-width':2, 'border-color':'#0a0b0d', 'text-outline-width':2, 'text-outline-color':'#0a0b0d',
-          'transition-property':'background-color, border-color', 'transition-duration':'250ms'
-        }},
-        { selector:'node[?shared]', style:{ 'border-color':'#e7e9ee', 'border-width':2.5 } },
-        { selector:'node[?deleted]', style:{
-          'background-color':'#2a2d35', 'border-color':'#3a3d45', 'border-style':'dashed',
-          'color':'#6b7280', 'text-outline-color':'#0a0b0d', 'opacity':0.55, 'shape':'round-diamond'
-        }},
-        { selector:'edge', style:{
-          'width':1.4, 'line-color':'#2b2f39', 'target-arrow-color':'#2b2f39',
-          'target-arrow-shape':'triangle', 'curve-style':'bezier', 'arrow-scale':0.8,
-          'label':'data(label)', 'font-size':'9px', 'color':'#6b7280', 'font-family':"'JetBrains Mono',monospace",
-          'text-rotation':'autorotate', 'text-background-color':'#0a0b0d', 'text-background-opacity':0.9,
-          'text-background-padding':2
-        }}
-      ],
-      layout: { name:'cose', animate:true, animationDuration:600, nodeRepulsion:9000, idealEdgeLength:110, padding:40 }
-    });
+    graphData = { nodes: rawNodes, links: rawLinks };
+    hoverNode = null; hlNodes.clear(); hlLinks.clear();
 
-    // legend
+    const container = $('#cy');
+    const hint = $('#graphHint');
+
+    // legend (unchanged scheme + shared ring + ghost)
     const legend = $('#graphLegend'); legend.innerHTML='';
+    if(!rawNodes.length){
+      if(graph){ try{ graph.pauseAnimation(); }catch(_){} graph = null; }
+      container.querySelectorAll('canvas, .force-graph-container').forEach(x=>x.remove());
+      if(!container.querySelector('.graph-empty')){
+        const e = el('div','empty graph-empty'); e.style.paddingTop='220px';
+        e.innerHTML = 'No graph yet. Ingest records or load demo data in <b>Records</b>.';
+        container.appendChild(e);
+      }
+      if(hint) hint.style.display='none';
+      return;
+    }
+    container.querySelectorAll('.graph-empty').forEach(x=>x.remove());
+    if(hint) hint.style.display='';
+
     Object.keys(colorCache).forEach(sub => {
-      const li = el('div', 'li'); li.innerHTML = '<span class="swatch" style="background:'+colorCache[sub]+'"></span>'; li.appendChild(document.createTextNode(sub));
+      const li = el('div','li');
+      li.innerHTML = '<span class="swatch" style="background:'+colorCache[sub]+'"></span>';
+      li.appendChild(document.createTextNode(sub));
       legend.appendChild(li);
     });
-    const shared = el('div','li'); shared.innerHTML='<span class="swatch" style="background:#16181d;border:2px solid #e7e9ee"></span>'; shared.appendChild(document.createTextNode('shared entity')); legend.appendChild(shared);
-    const ghost = el('div','li'); ghost.innerHTML='<span class="swatch" style="background:#2a2d35;border:1px dashed #3a3d45"></span>'; ghost.appendChild(document.createTextNode('erased (tombstone)')); legend.appendChild(ghost);
+    const sharedLi = el('div','li');
+    sharedLi.innerHTML = '<span class="swatch" style="background:transparent;border:2px solid var(--graph-ring)"></span>';
+    sharedLi.appendChild(document.createTextNode('shared entity')); legend.appendChild(sharedLi);
+    const ghostLi = el('div','li');
+    ghostLi.innerHTML = '<span class="swatch" style="background:var(--graph-ghost);border:1px dashed var(--graph-ghost)"></span>';
+    ghostLi.appendChild(document.createTextNode('erased (tombstone)')); legend.appendChild(ghostLi);
+
+    const radius = n => (n.deleted ? 4.5 : 4 + Math.min(7, Math.sqrt(n.deg||0) * 1.7));
+
+    function setHighlight(node){
+      hlNodes.clear(); hlLinks.clear(); hoverNode = node || null;
+      if(node){
+        hlNodes.add(node);
+        graphData.links.forEach(l => {
+          const s = (typeof l.source==='object') ? l.source : byId.get(l.source);
+          const t = (typeof l.target==='object') ? l.target : byId.get(l.target);
+          if(s===node || t===node){ hlLinks.add(l); hlNodes.add(s); hlNodes.add(t); }
+        });
+      }
+      container.style.cursor = node ? 'pointer' : '';
+    }
+
+    const liveCanvas = container.querySelector('canvas');
+    if(graph && liveCanvas){
+      // reuse existing instance — just swap data & rebind theme-aware draws
+      graph.graphData(graphData);
+    } else {
+      // fresh, or a prior instance that never got a canvas (e.g. inited while hidden) — rebuild
+      if(graph){ try{ graph.pauseAnimation(); }catch(_){} graph = null; }
+      container.querySelectorAll('.force-graph-container, canvas').forEach(x=>x.remove());
+      graph = ForceGraph()(container)
+        .width(container.clientWidth)
+        .height(container.clientHeight || 560)
+        .backgroundColor('rgba(0,0,0,0)')
+        .graphData(graphData)
+        .nodeRelSize(5)
+        .nodeId('id')
+        .nodeLabel(n => esc(n.name) + (n.type ? ' · ' + esc(n.type) : ''))
+        .cooldownTime(15000)
+        .d3VelocityDecay(0.28)
+        .warmupTicks(40)
+        .nodeCanvasObjectMode(() => 'replace')
+        .nodeCanvasObject((node, ctx, scale) => {
+          const r = radius(node);
+          node.__r = r;
+          const dim = hoverNode && !hlNodes.has(node);
+          ctx.save();
+          ctx.globalAlpha = dim ? 0.16 : 1;
+          // body
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r, 0, 2*Math.PI);
+          ctx.fillStyle = node.deleted ? TH.ghost : (node.color || '#6b7280');
+          ctx.fill();
+          ctx.lineWidth = 1.1 / scale;
+          ctx.strokeStyle = TH.stroke;
+          if(node.deleted){ ctx.setLineDash([2/scale, 2/scale]); ctx.strokeStyle = TH.ghost; }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // shared-entity ring
+          if(node.shared && !node.deleted){
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r + 2.2/scale, 0, 2*Math.PI);
+            ctx.strokeStyle = TH.ring; ctx.lineWidth = 1.4/scale; ctx.stroke();
+          }
+          // focus ring for hovered/neighbours
+          if(hoverNode && hlNodes.has(node)){
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, r + 3.2/scale, 0, 2*Math.PI);
+            ctx.strokeStyle = TH.edgeHi; ctx.lineWidth = 1.4/scale; ctx.stroke();
+          }
+          // label
+          const showLabel = scale > 1.15 || hlNodes.has(node) || !hoverNode;
+          if(showLabel){
+            const fs = Math.max(7, 11/scale);
+            ctx.font = (node.deleted ? 'italic ' : '') + fs + "px Inter, sans-serif";
+            const text = node.name;
+            const tw = ctx.measureText(text).width;
+            const ly = node.y + r + fs*0.95;
+            ctx.globalAlpha = dim ? 0.12 : 0.96;
+            ctx.fillStyle = TH.labelBg;
+            const padX = 2.5/scale;
+            ctx.fillRect(node.x - tw/2 - padX, ly - fs*0.72, tw + padX*2, fs*1.1);
+            ctx.fillStyle = node.deleted ? TH.ghost : TH.label;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, node.x, ly - fs*0.16);
+          }
+          ctx.restore();
+        })
+        .nodePointerAreaPaint((node, color, ctx) => {
+          const r = node.__r || 5;
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(node.x, node.y, r + 2, 0, 2*Math.PI); ctx.fill();
+        })
+        .linkColor(l => hlLinks.has(l) ? TH.edgeHi : TH.edge)
+        .linkWidth(l => hlLinks.has(l) ? 1.6 : 0.7)
+        .linkDirectionalArrowLength(3)
+        .linkDirectionalArrowRelPos(0.92)
+        .linkDirectionalArrowColor(l => hlLinks.has(l) ? TH.edgeHi : TH.edge)
+        .linkCanvasObjectMode(() => 'after')
+        .linkCanvasObject((link, ctx, scale) => {
+          if(scale < 1.4) return;
+          const s = link.source, t = link.target;
+          if(typeof s!=='object' || typeof t!=='object' || !link.rel) return;
+          if(hoverNode && !hlLinks.has(link)) return;
+          const mx = (s.x+t.x)/2, my = (s.y+t.y)/2;
+          const fs = Math.max(5, 8/scale);
+          ctx.save();
+          ctx.font = fs + "px 'JetBrains Mono', monospace";
+          const tw = ctx.measureText(link.rel).width;
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = TH.labelBg;
+          ctx.fillRect(mx - tw/2 - 2/scale, my - fs*0.7, tw + 4/scale, fs*1.15);
+          ctx.fillStyle = hlLinks.has(link) ? TH.edgeHi : TH.edge;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(link.rel, mx, my - fs*0.1);
+          ctx.restore();
+        })
+        .onNodeHover(node => setHighlight(node))
+        .onNodeDrag(node => { node.fx = node.x; node.fy = node.y; })
+        .onNodeDragEnd(node => { node.fx = undefined; node.fy = undefined; graph.d3ReheatSimulation(); })
+        .onBackgroundClick(() => setHighlight(null));
+
+      // repulsion + spring tuning for a breathing, spread-out feel
+      graph.d3Force('charge').strength(-150).distanceMax(420);
+      graph.d3Force('link').distance(l => 46).strength(0.65);
+      if(graph.d3Force('center')) graph.d3Force('center').strength(0.045);
+    }
+
+    // force-graph replaces the container's children on init — restore the hint overlay.
+    if(!container.querySelector('.graph-hint')){
+      const h = el('div','graph-hint'); h.id='graphHint';
+      h.textContent = 'drag to reposition · scroll to zoom · hover to focus';
+      container.appendChild(h);
+    }
+
+    graphOnResize();
+    setTimeout(() => { try{ graph.zoomToFit(500, 44); }catch(_){} }, 350);
   }
   $('#refreshGraph').addEventListener('click', loadGraph);
 
@@ -809,7 +1319,7 @@
     btn.innerHTML = '<span class="spinner"></span> Erasing & sealing proof…';
 
     let bundle;
-    try{ bundle = await api('/api/forget', { method:'POST', body: JSON.stringify({ subject }) }); }
+    try{ bundle = await api('/api/forget', { method:'POST', body: wsBody({ subject }) }); }
     catch(err){
       stage.classList.remove('scanning');
       btn.disabled=false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg> Forget &amp; Prove';
@@ -867,7 +1377,7 @@
     requestAnimationFrame(()=>p2.classList.add('reveal'));
 
     try{
-      const askData = await api('/api/ask', { method:'POST', body: JSON.stringify({ query:'What do you know about '+subject+'?' }) });
+      const askData = await api('/api/ask', { method:'POST', body: wsBody({ query:'What do you know about '+subject+'?' }) });
       a.textContent = (askData && askData.answer) ? askData.answer : 'Nothing on record.';
     }catch(_){ a.textContent = 'Nothing on record for "'+subject+'".'; }
 
@@ -892,6 +1402,14 @@
     crow('Subject', receipt.subject||subject);
     crow('Snapshot anchor (t_before)', receipt.t_before||'—');
     p3._body.appendChild(cert);
+    if(receipt.event_id){
+      const link = el('a','cert-link');
+      link.href = '/certificate/' + encodeURIComponent(receipt.event_id);
+      link.target = '_blank'; link.rel = 'noopener';
+      link.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg>';
+      link.appendChild(document.createTextNode('View certificate'));
+      p3._body.appendChild(link);
+    }
     proofsEl.appendChild(p3);
     requestAnimationFrame(()=>p3.classList.add('reveal'));
 
@@ -913,7 +1431,7 @@
   async function loadAudit(){
     // timeline
     try{
-      const tl = await api('/api/timeline');
+      const tl = await api(qWs('/api/timeline'));
       const box = $('#timeline'); box.innerHTML='';
       if(!Array.isArray(tl) || !tl.length){ box.innerHTML='<div class="empty">No activity yet.</div>'; }
       else tl.forEach(item => {
@@ -932,12 +1450,12 @@
 
     // events
     try{
-      const ev = await api('/api/events');
+      const ev = await api(qWs('/api/events'));
       const tb = $('#eventsTable').querySelector('tbody'); tb.innerHTML='';
       if(!Array.isArray(ev) || !ev.length){ tb.innerHTML='<tr><td class="empty">No erasure events recorded.</td></tr>'; }
       else{
         const head = document.createElement('tr');
-        ['Subject','Docs','Nodes','Edges','Retained','When'].forEach(h=>{ const th=el('th',null,h); head.appendChild(th); });
+        ['Subject','Docs','Nodes','Edges','Retained','When','Proof'].forEach(h=>{ const th=el('th',null,h); head.appendChild(th); });
         const thead = $('#eventsTable').querySelector('thead') || $('#eventsTable').createTHead(); thead.innerHTML=''; thead.appendChild(head);
         ev.forEach(e => {
           const tr=document.createElement('tr');
@@ -947,7 +1465,15 @@
           const c4=el('td','n',String(e.edges!=null?e.edges:0));
           const c5=el('td','n',String(e.invalidated!=null?e.invalidated:0));
           const c6=el('td','faint'); c6.style.fontFamily='var(--mono)'; c6.style.fontSize='11.5px'; c6.textContent=e.at||'';
-          [c1,c2,c3,c4,c5,c6].forEach(c=>tr.appendChild(c)); tb.appendChild(tr);
+          const c7=el('td');
+          if(e.id){
+            const link=el('a','cert-link mini');
+            link.href='/certificate/'+encodeURIComponent(e.id); link.target='_blank'; link.rel='noopener';
+            link.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+            link.appendChild(document.createTextNode('View'));
+            c7.appendChild(link);
+          } else { c7.className='faint'; c7.textContent='—'; }
+          [c1,c2,c3,c4,c5,c6,c7].forEach(c=>tr.appendChild(c)); tb.appendChild(tr);
         });
       }
     }catch(err){ $('#eventsTable').querySelector('tbody').innerHTML='<tr><td class="empty">Events unavailable.</td></tr>'; }
@@ -990,8 +1516,140 @@
     }finally{ $('#saveModel').disabled=false; }
   });
 
+  // ---------- THEME ----------
+  const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const themeBtn = $('#themeToggle');
+  const metaThemeEl = document.querySelector('meta[name="theme-color"]');
+  function applyTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('obliviate.theme', t); }catch(_){}
+    if(themeBtn) themeBtn.innerHTML = (t==='light') ? MOON : SUN;
+    if(metaThemeEl) metaThemeEl.setAttribute('content', t==='light' ? '#f6f7f9' : '#0a0b0d');
+    TH = computeGraphTheme();
+    if(graph){ try{ graph.d3ReheatSimulation(); }catch(_){} }
+  }
+  (function initTheme(){
+    let t = 'dark';
+    try{ t = localStorage.getItem('obliviate.theme') || 'dark'; }catch(_){}
+    applyTheme(t==='light' ? 'light' : 'dark');
+  })();
+  themeBtn && themeBtn.addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark';
+    applyTheme(cur==='light' ? 'dark' : 'light');
+  });
+
+  // ---------- WORKSPACE SWITCHER ----------
+  const wsBtn = $('#wsBtn'), wsMenu = $('#wsMenu'), wsList = $('#wsList');
+  const RECEIPTS_EMPTY_HTML = $('#receipts') ? $('#receipts').innerHTML : '';
+
+  function wsInitial(name){ return (name||'W').trim().charAt(0).toUpperCase() || 'W'; }
+  function currentWsName(){ const w = WORKSPACES.find(x => x.id===WS); return w ? w.name : (WS==='default' ? 'Default' : WS); }
+
+  function paintWsButton(){
+    $('#wsName').textContent = currentWsName();
+    $('#wsAvatar').textContent = wsInitial(currentWsName());
+  }
+
+  function renderWsMenu(){
+    wsList.innerHTML = '';
+    WORKSPACES.forEach(w => {
+      const row = el('div', 'ws-row' + (w.id===WS ? ' active' : ''));
+      row.setAttribute('role','option'); row.setAttribute('aria-selected', w.id===WS ? 'true':'false');
+      const av = el('span','ws-avatar'); av.textContent = wsInitial(w.name);
+      const nm = el('span','nm'); nm.textContent = w.name;
+      row.appendChild(av); row.appendChild(nm);
+      if(w.id===WS){
+        const tick = document.createElement('span'); tick.className='tick';
+        tick.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+        row.appendChild(tick);
+      }
+      if(w.id!=='default'){
+        const del = el('button','del'); del.setAttribute('aria-label','Delete workspace '+w.name);
+        del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>';
+        del.addEventListener('click', ev => { ev.stopPropagation(); deleteWorkspace(w); });
+        row.appendChild(del);
+      }
+      row.addEventListener('click', () => { closeWsMenu(); if(w.id!==WS) selectWorkspace(w.id); });
+      wsList.appendChild(row);
+    });
+  }
+
+  function openWsMenu(){ renderWsMenu(); wsMenu.classList.remove('hidden'); wsBtn.setAttribute('aria-expanded','true'); }
+  function closeWsMenu(){ wsMenu.classList.add('hidden'); wsBtn.setAttribute('aria-expanded','false'); }
+  wsBtn.addEventListener('click', e => { e.stopPropagation(); wsMenu.classList.contains('hidden') ? openWsMenu() : closeWsMenu(); });
+  document.addEventListener('click', e => { if(!$('#wsSwitch').contains(e.target)) closeWsMenu(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape') closeWsMenu(); });
+
+  async function loadWorkspaces(){
+    try{
+      const list = await api('/api/workspaces');
+      if(Array.isArray(list) && list.length) WORKSPACES = list;
+    }catch(_){ /* keep default */ }
+    if(!WORKSPACES.some(w => w.id===WS)) saveWs('default');
+    paintWsButton();
+  }
+
+  async function selectWorkspace(id){
+    saveWs(id);
+    paintWsButton();
+    // reset all per-workspace UI + reload every view's data
+    loaded.subjects = false;
+    receiptCount = 0;
+    if($('#receipts')) $('#receipts').innerHTML = RECEIPTS_EMPTY_HTML;
+    if($('#receiptCount')) $('#receiptCount').textContent = '0';
+    if($('#demoNote')){ $('#demoNote').style.display='none'; }
+    if($('#proofs')) $('#proofs').innerHTML='';
+    loadThreadsForWs();
+    loadSubjects();
+    if(!$('#view-graph').classList.contains('hidden')) loadGraph();
+    if(!$('#view-audit').classList.contains('hidden')) loadAudit();
+    toast('Switched to '+currentWsName(), 'ok');
+  }
+
+  async function createWorkspace(){
+    const name = (window.prompt('New workspace name') || '').trim();
+    if(!name) return;
+    try{
+      const w = await api('/api/workspaces', { method:'POST', body: JSON.stringify({ name }) });
+      WORKSPACES.push({ id:w.id, name:w.name });
+      selectWorkspace(w.id);
+    }catch(err){ toast('Could not create workspace ('+(err.status||'network')+')', 'err'); }
+  }
+  $('#wsNew').addEventListener('click', () => { closeWsMenu(); createWorkspace(); });
+
+  async function deleteWorkspace(w){
+    if(w.id==='default') return;
+    if(!window.confirm('Delete workspace "'+w.name+'"? All its records and proofs are removed. This cannot be undone.')) return;
+    try{
+      const res = await api('/api/workspaces/delete', { method:'POST', body: JSON.stringify({ id:w.id }) });
+      if(res && res.ok===false){ toast(res.error||'Cannot delete workspace','err'); return; }
+      try{ localStorage.removeItem('obliviate.threads.'+w.id); localStorage.removeItem('obliviate.active.'+w.id); }catch(_){}
+      WORKSPACES = WORKSPACES.filter(x => x.id!==w.id);
+      toast('Deleted "'+w.name+'"', 'ok');
+      if(WS===w.id){ selectWorkspace('default'); }
+      else { renderWsMenu(); }
+    }catch(err){ toast('Delete failed ('+(err.status||'network')+')', 'err'); }
+  }
+
+  // ---------- ONBOARDING ----------
+  const onboard = $('#onboard');
+  function onboardDone(){ try{ return localStorage.getItem('obliviate.onboard')==='done'; }catch(_){ return false; } }
+  function initOnboard(){ if(onboard && !onboardDone()) onboard.classList.remove('hidden'); }
+  function dismissOnboard(){ try{ localStorage.setItem('obliviate.onboard','done'); }catch(_){}; if(onboard) onboard.classList.add('hidden'); }
+  $('#onboardDismiss') && $('#onboardDismiss').addEventListener('click', dismissOnboard);
+  $('#obDemo') && $('#obDemo').addEventListener('click', () => { switchView('records'); runDemo(); });
+  $('#obAsk') && $('#obAsk').addEventListener('click', () => { chatInput.value = 'What do you know about Alice?'; sendChat(chatInput.value); });
+  $('#obForget') && $('#obForget').addEventListener('click', () => switchView('forget'));
+  $('#obGraph') && $('#obGraph').addEventListener('click', () => switchView('graph'));
+
   // ---------- boot ----------
-  loadSubjects();
+  (async function boot(){
+    await loadWorkspaces();
+    loadThreadsForWs();
+    initOnboard();
+    loadSubjects();
+  })();
 })();
 </script>
 </body>
