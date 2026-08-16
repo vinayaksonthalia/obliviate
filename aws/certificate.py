@@ -99,13 +99,18 @@ def issue(receipt: dict, proof_prior: list, proof_absence: dict, issued_at: str)
             bucket = os.environ["S3_CERT_BUCKET"]
             s3_key = f"certificates/{subject_sha[:16]}-{receipt['event_id']}.json"
             s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "ap-south-1"))
+            # WORM lock, configurable so demo buckets aren't locked for a decade.
+            #   S3_LOCK_MODE: COMPLIANCE (no one can delete before expiry) | GOVERNANCE (privileged override)
+            #   S3_LOCK_DAYS: retention window (default 1 day — enough to demo WORM, short enough to clean up)
+            lock_mode = os.environ.get("S3_LOCK_MODE", "COMPLIANCE").upper()
+            lock_days = int(os.environ.get("S3_LOCK_DAYS", "1"))
             s3.put_object(
                 Bucket=bucket,
                 Key=s3_key,
                 Body=body,
                 ContentType="application/json",
-                ObjectLockMode="COMPLIANCE",
-                ObjectLockRetainUntilDate=datetime.now(timezone.utc) + timedelta(days=3650),
+                ObjectLockMode=lock_mode,
+                ObjectLockRetainUntilDate=datetime.now(timezone.utc) + timedelta(days=lock_days),
                 Metadata={"sha256": result["sha256"]},
             )
             result.update(stored=True, s3_bucket=bucket, s3_key=s3_key)

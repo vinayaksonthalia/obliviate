@@ -5,18 +5,16 @@
       "Sid": "ObliviateCertBucket",
       "Effect": "Allow",
       "Action": [
-        "s3:CreateBucket",
-        "s3:PutBucketVersioning",
-        "s3:PutBucketObjectLockConfiguration",
-        "s3:GetBucketObjectLockConfiguration",
         "s3:PutObject",
         "s3:GetObject",
         "s3:PutObjectRetention",
+        "s3:GetObjectRetention",
+        "s3:GetBucketObjectLockConfiguration",
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::obliviate-erasure-certs",
-        "arn:aws:s3:::obliviate-erasure-certs/*"
+        "arn:aws:s3:::obliviate-certs-vinayak",
+        "arn:aws:s3:::obliviate-certs-vinayak/*"
       ]
     }
   ]
