@@ -84,15 +84,15 @@ def _open(key: bytes, blob: bytes) -> bytes:
     return AESGCM(key).decrypt(blob[:12], blob[12:], None)
 
 
-def get_or_create_dek(conn, subject: str) -> bytes:
-    """Return the plaintext DEK for a subject, minting + wrapping one on first use.
+def get_or_create_dek(conn, workspace: str, subject: str) -> bytes:
+    """Return the plaintext DEK for a (workspace, subject), minting + wrapping one on first use.
 
     Raises KeyDestroyed if the subject was already erased (shredded key).
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT wrapped_dek, destroyed_at FROM subject_keys WHERE subject = %s",
-            (subject,),
+            "SELECT wrapped_dek, destroyed_at FROM subject_keys WHERE workspace = %s AND subject = %s",
+            (workspace, subject),
         )
         row = cur.fetchone()
         if row:
@@ -102,36 +102,40 @@ def get_or_create_dek(conn, subject: str) -> bytes:
             return _open(_root_key(), wrapped)
         dek = AESGCM.generate_key(bit_length=256)
         cur.execute(
-            "UPSERT INTO subject_keys (subject, wrapped_dek) VALUES (%s, %s)",
-            (subject, _seal(_root_key(), dek)),
+            "UPSERT INTO subject_keys (workspace, subject, wrapped_dek) VALUES (%s, %s, %s)",
+            (workspace, subject, _seal(_root_key(), dek)),
         )
         return dek
 
 
-def encrypt_for(conn, subject: str, text: str) -> bytes:
-    """Seal `text` under the subject's data key."""
-    return _seal(get_or_create_dek(conn, subject), text.encode())
+def encrypt_for(conn, workspace: str, subject: str, text: str) -> bytes:
+    """Seal `text` under the (workspace, subject) data key."""
+    return _seal(get_or_create_dek(conn, workspace, subject), text.encode())
 
 
-def decrypt_for(conn, subject: str, blob) -> str | None:
-    """Open sealed content. Returns None if the subject's key is gone (erased) — proving
-    that even retained ciphertext is unrecoverable after a crypto-shred."""
+def decrypt_for(conn, workspace: str, subject: str, blob) -> str | None:
+    """Open sealed content. Returns None if the key is gone (erased) — proving that even
+    retained ciphertext is unrecoverable after a crypto-shred."""
     if blob is None:
         return None
     with conn.cursor() as cur:
-        cur.execute("SELECT wrapped_dek FROM subject_keys WHERE subject = %s", (subject,))
+        cur.execute(
+            "SELECT wrapped_dek FROM subject_keys WHERE workspace = %s AND subject = %s",
+            (workspace, subject),
+        )
         row = cur.fetchone()
     if not row or row[0] is None:
         return None
     return _open(_open(_root_key(), row[0]), blob).decode()
 
 
-def crypto_shred(conn, subject: str) -> None:
-    """Destroy a subject's data key. Irreversible: their sealed content can never be opened again."""
+def crypto_shred(conn, workspace: str, subject: str) -> None:
+    """Destroy a (workspace, subject) data key. Irreversible: sealed content can never be opened again."""
     with conn.cursor() as cur:
         cur.execute(
-            "UPDATE subject_keys SET wrapped_dek = NULL, destroyed_at = now() WHERE subject = %s",
-            (subject,),
+            "UPDATE subject_keys SET wrapped_dek = NULL, destroyed_at = now() "
+            "WHERE workspace = %s AND subject = %s",
+            (workspace, subject),
         )
 
 
@@ -140,19 +144,18 @@ def crypto_shred(conn, subject: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 def apply_schema(conn) -> int:
     """Apply db/schema.sql (idempotent). Returns the number of statements executed."""
+    import re
+
     path = os.path.join(os.path.dirname(__file__), "schema.sql")
     with open(path) as f:
         sql = f.read()
+    sql = re.sub(r"--[^\n]*", "", sql)  # strip line comments (handles ';' inside comments)
     n = 0
     with conn.cursor() as cur:
         for stmt in sql.split(";"):
-            body = "\n".join(
-                ln for ln in stmt.splitlines() if ln.strip() and not ln.strip().startswith("--")
-            ).strip()
-            if not body:
-                continue
-            cur.execute(stmt)
-            n += 1
+            if stmt.strip():
+                cur.execute(stmt)
+                n += 1
     return n
 
 

@@ -1,11 +1,12 @@
 -- Obliviate — CockroachDB schema
 -- One transactional store unifies documents + knowledge graph + vectors + crypto + audit.
--- (Replaces the prior project's Cognee + Kùzu + LanceDB split.)
+-- Every row is scoped to a WORKSPACE (multi-tenant isolation; defaults to 'default').
 
 -- Documents: raw ingested text, one row per source document, owned by a subject/entity.
--- content is stored ENCRYPTED under the subject's data key (crypto-shred on erasure).
+-- content is stored ENCRYPTED under the (workspace, subject) data key (crypto-shred on erasure).
 CREATE TABLE IF NOT EXISTS documents (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace    STRING NOT NULL DEFAULT 'default',
     subject      STRING NOT NULL,                 -- the data subject / system this doc is about
     title        STRING,
     content_enc  BYTES,                           -- AES-GCM ciphertext of the raw text
@@ -14,12 +15,13 @@ CREATE TABLE IF NOT EXISTS documents (
     created_at   TIMESTAMPTZ DEFAULT now(),
     deleted_at   TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS documents_subject_idx ON documents (subject);
+CREATE INDEX IF NOT EXISTS documents_ws_subject_idx ON documents (workspace, subject);
 
 -- Nodes: knowledge-graph entities extracted from documents (LLM-extracted, coreference-merged).
--- UNIQUE(name) gives deterministic dedup via INSERT .. ON CONFLICT (fixes the prior custom-schema bug).
+-- UNIQUE(workspace, name) gives deterministic dedup via INSERT .. ON CONFLICT, per workspace.
 CREATE TABLE IF NOT EXISTS nodes (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace    STRING NOT NULL DEFAULT 'default',
     name         STRING NOT NULL,
     type         STRING,
     description  STRING,
@@ -29,14 +31,15 @@ CREATE TABLE IF NOT EXISTS nodes (
     subjects     STRING[] DEFAULT ARRAY[]::STRING[], -- subjects whose docs produced this node
     created_at   TIMESTAMPTZ DEFAULT now(),
     deleted_at   TIMESTAMPTZ,
-    UNIQUE (name)
+    UNIQUE (workspace, name)
 );
 CREATE VECTOR INDEX IF NOT EXISTS nodes_embedding_idx ON nodes (embedding vector_cosine_ops);
-CREATE INDEX IF NOT EXISTS nodes_deleted_idx ON nodes (deleted_at);
+CREATE INDEX IF NOT EXISTS nodes_ws_idx ON nodes (workspace);
 
 -- Edges: relationships between nodes (the graph). doc_ids = provenance.
 CREATE TABLE IF NOT EXISTS edges (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace     STRING NOT NULL DEFAULT 'default',
     source_id     UUID NOT NULL,
     target_id     UUID NOT NULL,
     relationship  STRING,
@@ -46,19 +49,23 @@ CREATE TABLE IF NOT EXISTS edges (
 );
 CREATE INDEX IF NOT EXISTS edges_source_idx ON edges (source_id);
 CREATE INDEX IF NOT EXISTS edges_target_idx ON edges (target_id);
+CREATE INDEX IF NOT EXISTS edges_ws_idx ON edges (workspace);
 
--- Per-subject data-encryption keys. Erasure DESTROYS wrapped_dek => residual ciphertext
--- (in MVCC history, backups, S3) becomes cryptographically unrecoverable (Ghost-Vectors mitigation).
+-- Per-(workspace, subject) data-encryption keys. Erasure DESTROYS wrapped_dek => residual
+-- ciphertext (MVCC history, backups, S3) becomes cryptographically unrecoverable.
 CREATE TABLE IF NOT EXISTS subject_keys (
-    subject      STRING PRIMARY KEY,
+    workspace    STRING NOT NULL DEFAULT 'default',
+    subject      STRING NOT NULL,
     wrapped_dek  BYTES,                            -- DEK wrapped (AES-GCM) by the root key
     created_at   TIMESTAMPTZ DEFAULT now(),
-    destroyed_at TIMESTAMPTZ
+    destroyed_at TIMESTAMPTZ,
+    PRIMARY KEY (workspace, subject)
 );
 
 -- Erasure audit log + certificate registry (mirrored to object-locked S3).
 CREATE TABLE IF NOT EXISTS erasure_events (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace         STRING NOT NULL DEFAULT 'default',
     subject           STRING,
     t_before          DECIMAL,                     -- cluster_logical_timestamp() pre-delete (AOST anchor)
     docs_removed      INT DEFAULT 0,
@@ -71,9 +78,17 @@ CREATE TABLE IF NOT EXISTS erasure_events (
     created_at        TIMESTAMPTZ DEFAULT now()
 );
 
+-- Workspaces: named, isolated knowledge bases (multi-tenancy).
+CREATE TABLE IF NOT EXISTS workspaces (
+    id         STRING PRIMARY KEY,
+    name       STRING,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Memory timeline: ingest / forget / demote / review events for the UI.
 CREATE TABLE IF NOT EXISTS timeline (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace  STRING NOT NULL DEFAULT 'default',
     kind       STRING,
     subject    STRING,
     detail     STRING,

@@ -30,14 +30,15 @@ EXTRACT_SYSTEM = (
 )
 
 
-def ingest_document(subject: str, title: str, text: str) -> dict:
-    """Ingest one document about `subject`. Returns a small receipt of what was stored."""
+def ingest_document(subject: str, title: str, text: str, workspace: str = "default") -> dict:
+    """Ingest one document about `subject` in `workspace`. Returns a small receipt."""
     with store.connect() as conn:
-        blob = store.encrypt_for(conn, subject, text)
+        blob = store.encrypt_for(conn, workspace, subject, text)
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO documents (subject, title, content_enc) VALUES (%s, %s, %s) RETURNING id",
-                (subject, title, blob),
+                "INSERT INTO documents (workspace, subject, title, content_enc) "
+                "VALUES (%s, %s, %s, %s) RETURNING id",
+                (workspace, subject, title, blob),
             )
             doc_id = cur.fetchone()[0]
 
@@ -55,9 +56,9 @@ def ingest_document(subject: str, title: str, text: str) -> dict:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO nodes (name, type, description, embedding, doc_ids, subjects)
-                    VALUES (%s, %s, %s, %s, ARRAY[%s]::UUID[], ARRAY[%s]::STRING[])
-                    ON CONFLICT (name) DO UPDATE SET
+                    INSERT INTO nodes (workspace, name, type, description, embedding, doc_ids, subjects)
+                    VALUES (%s, %s, %s, %s, %s, ARRAY[%s]::UUID[], ARRAY[%s]::STRING[])
+                    ON CONFLICT (workspace, name) DO UPDATE SET
                         description = COALESCE(EXCLUDED.description, nodes.description),
                         embedding   = EXCLUDED.embedding,
                         doc_ids     = array_cat(nodes.doc_ids, EXCLUDED.doc_ids),
@@ -65,7 +66,7 @@ def ingest_document(subject: str, title: str, text: str) -> dict:
                         deleted_at  = NULL
                     RETURNING id
                     """,
-                    (name, e.get("type"), desc, emb, doc_id, subject),
+                    (workspace, name, e.get("type"), desc, emb, doc_id, subject),
                 )
                 name_to_id[name.lower()] = cur.fetchone()[0]
 
@@ -76,15 +77,16 @@ def ingest_document(subject: str, title: str, text: str) -> dict:
             if s and t and s != t:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO edges (source_id, target_id, relationship, description, doc_ids) "
-                        "VALUES (%s, %s, %s, %s, ARRAY[%s]::UUID[])",
-                        (s, t, r.get("relationship"), r.get("description"), doc_id),
+                        "INSERT INTO edges (workspace, source_id, target_id, relationship, description, doc_ids) "
+                        "VALUES (%s, %s, %s, %s, %s, ARRAY[%s]::UUID[])",
+                        (workspace, s, t, r.get("relationship"), r.get("description"), doc_id),
                     )
                 edge_n += 1
 
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO timeline (kind, subject, detail) VALUES ('ingest', %s, %s)",
-                (subject, f"ingested '{title}': {len(entities)} entities, {edge_n} relationships"),
+                "INSERT INTO timeline (workspace, kind, subject, detail) VALUES (%s, 'ingest', %s, %s)",
+                (workspace, subject, f"ingested '{title}': {len(entities)} entities, {edge_n} relationships"),
             )
-    return {"doc_id": str(doc_id), "subject": subject, "entities": len(entities), "relationships": edge_n}
+    return {"doc_id": str(doc_id), "subject": subject, "workspace": workspace,
+            "entities": len(entities), "relationships": edge_n}

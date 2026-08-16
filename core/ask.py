@@ -47,14 +47,14 @@ def _smalltalk(query: str) -> str | None:
     return None
 
 
-def _retrieve(conn, query: str, k: int = 6, hops: int = 1):
-    """Vector-ANN seed nodes, then expand `hops` in the graph via a recursive CTE."""
+def _retrieve(conn, query: str, workspace: str = "default", k: int = 6, hops: int = 1):
+    """Vector-ANN seed nodes, then expand `hops` in the graph via a recursive CTE (workspace-scoped)."""
     qvec = store.to_vector(client.embed(query))
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT id FROM nodes WHERE deleted_at IS NULL AND embedding IS NOT NULL "
+            "SELECT id FROM nodes WHERE workspace = %s AND deleted_at IS NULL AND embedding IS NOT NULL "
             "ORDER BY embedding <=> %s LIMIT %s",
-            (qvec, k),
+            (workspace, qvec, k),
         )
         seed_ids = [r[0] for r in cur.fetchall()]
         if not seed_ids:
@@ -67,13 +67,13 @@ def _retrieve(conn, query: str, k: int = 6, hops: int = 1):
               UNION
                 SELECT CASE WHEN e.source_id = r.id THEN e.target_id ELSE e.source_id END, r.depth + 1
                 FROM edges e JOIN reach r ON (e.source_id = r.id OR e.target_id = r.id)
-                WHERE r.depth < %s
+                WHERE r.depth < %s AND e.workspace = %s
             )
             SELECT DISTINCT n.id, n.name, n.type, n.description
             FROM reach JOIN nodes n ON n.id = reach.id
-            WHERE n.deleted_at IS NULL
+            WHERE n.deleted_at IS NULL AND n.workspace = %s
             """,
-            (seed_ids, hops),
+            (seed_ids, hops, workspace, workspace),
         )
         nodes = cur.fetchall()
         ids = [r[0] for r in nodes]
@@ -84,10 +84,10 @@ def _retrieve(conn, query: str, k: int = 6, hops: int = 1):
             FROM edges e
             JOIN nodes s ON s.id = e.source_id
             JOIN nodes t ON t.id = e.target_id
-            WHERE e.source_id = ANY(%s) AND e.target_id = ANY(%s)
+            WHERE e.source_id = ANY(%s) AND e.target_id = ANY(%s) AND e.workspace = %s
               AND s.deleted_at IS NULL AND t.deleted_at IS NULL
             """,
-            (ids, ids),
+            (ids, ids, workspace),
         )
         edges = cur.fetchall()
     return nodes, edges
@@ -104,9 +104,9 @@ def _serialize(nodes, edges) -> str:
     return "\n".join(lines)
 
 
-def ask(query: str, history: list | None = None) -> str:
-    """Answer `query` from memory. Folds prior USER turns for follow-ups; never folds past answers
-    (a forgotten fact could resurface from an old answer, poisoning the grounding)."""
+def ask(query: str, history: list | None = None, workspace: str = "default") -> str:
+    """Answer `query` from a workspace's memory. Folds prior USER turns for follow-ups; never folds
+    past answers (a forgotten fact could resurface from an old answer, poisoning the grounding)."""
     st = _smalltalk(query)
     if st is not None:
         return st
@@ -119,7 +119,7 @@ def ask(query: str, history: list | None = None) -> str:
             q = f"Earlier in this conversation the user asked:\n{convo}\n\nThe user now asks: {query}"
 
     with store.connect() as conn:
-        nodes, edges = _retrieve(conn, q)
+        nodes, edges = _retrieve(conn, q, workspace)
     if not nodes:
         return "I don't have anything on record about that."
 
