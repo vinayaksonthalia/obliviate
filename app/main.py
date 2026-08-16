@@ -13,8 +13,12 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, PlainTextResponse
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+from fastapi import FastAPI, UploadFile, File, Form, Depends, Header, HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -40,6 +44,40 @@ if os.path.isdir(STATIC):
 def _ws(workspace: str | None) -> str:
     """Resolve a workspace id — fail-closed to 'default' only on empty input."""
     return (workspace or "default").strip() or "default"
+
+
+# ── access control (opt-in via env; off by default for the demo) ──
+AUTH_TOKEN = os.environ.get("OBLIVIATE_AUTH_TOKEN")
+LOCK_MODEL = os.environ.get("OBLIVIATE_LOCK_MODEL") == "1"
+
+
+def require_auth(authorization: str | None = Header(None)):
+    """If OBLIVIATE_AUTH_TOKEN is set, mutating routes require `Authorization: Bearer <token>`."""
+    if AUTH_TOKEN and authorization != f"Bearer {AUTH_TOKEN}":
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+
+def _validate_endpoint(url: str) -> None:
+    """SSRF guard for a user-supplied LLM endpoint: block private/internal hosts, require https off-box."""
+    if not url:
+        return
+    p = urlparse(url)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        raise HTTPException(status_code=400, detail="invalid endpoint")
+    host = p.hostname
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return
+    if p.scheme != "https":
+        raise HTTPException(status_code=400, detail="non-local endpoint must use https")
+    try:
+        for res in socket.getaddrinfo(host, None):
+            ip = ipaddress.ip_address(res[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                raise HTTPException(status_code=400, detail="endpoint resolves to a non-public address")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="endpoint host could not be resolved")
 
 
 # ─────────────────────────────────────────────────────────── pages
@@ -96,7 +134,7 @@ def workspaces_create(r: WsReq):
 
 
 @app.post("/api/workspaces/delete")
-def workspaces_delete(r: WsDelReq):
+def workspaces_delete(r: WsDelReq, _: None = Depends(require_auth)):
     if r.id == "default":
         return {"ok": False, "error": "the default workspace cannot be deleted"}
     with store.connect() as conn:
@@ -128,16 +166,24 @@ class ForgetReq(BaseModel):
 
 
 @app.post("/api/ingest")
-def api_ingest(r: IngestReq):
-    return ingest_document(r.subject, r.title or r.subject, r.text, _ws(r.workspace))
+def api_ingest(r: IngestReq, _: None = Depends(require_auth)):
+    try:
+        return ingest_document(r.subject, r.title or r.subject, r.text, _ws(r.workspace))
+    except store.KeyDestroyed:
+        raise HTTPException(status_code=409,
+                            detail="this subject was permanently erased; the name cannot be re-onboarded")
 
 
 @app.post("/api/upload")
 async def api_upload(file: UploadFile = File(...), subject: str = Form(""),
-                     workspace: str = Form("default")):
+                     workspace: str = Form("default"), _: None = Depends(require_auth)):
     raw = (await file.read()).decode("utf-8", errors="ignore")
     subj = (subject or os.path.splitext(file.filename or "uploaded")[0])[:80]
-    return ingest_document(subj, file.filename or subj, raw, _ws(workspace))
+    try:
+        return ingest_document(subj, file.filename or subj, raw, _ws(workspace))
+    except store.KeyDestroyed:
+        raise HTTPException(status_code=409,
+                            detail="this subject was permanently erased; the name cannot be re-onboarded")
 
 
 @app.post("/api/ask")
@@ -146,7 +192,7 @@ def api_ask(r: AskReq):
 
 
 @app.post("/api/forget")
-def api_forget(r: ForgetReq):
+def api_forget(r: ForgetReq, _: None = Depends(require_auth)):
     ws = _ws(r.workspace)
     receipt = forget(r.subject, ws)
     prior = prior_state(r.subject, receipt["t_before"], ws)
@@ -251,7 +297,10 @@ def api_model_get():
 
 
 @app.post("/api/model")
-def api_model_set(r: ModelReq):
+def api_model_set(r: ModelReq, _: None = Depends(require_auth)):
+    if LOCK_MODEL:
+        raise HTTPException(status_code=403, detail="the model is locked on this deployment")
+    _validate_endpoint(r.endpoint or "")
     return llm_client.set_config(r.provider, r.model, r.endpoint, r.api_key)
 
 

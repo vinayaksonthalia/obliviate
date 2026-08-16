@@ -16,20 +16,23 @@ state — and the AS OF SYSTEM TIME anchor lets us prove, afterwards, exactly wh
 """
 from __future__ import annotations
 
+import re
+
 from db import store
 
 
 def forget(subject: str, workspace: str = "default") -> dict:
     """Erase `subject` from a workspace's memory. Returns a measured receipt."""
     with store.connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT cluster_logical_timestamp()::string")
-            t_before = cur.fetchone()[0]
-
         receipt = {"docs": 0, "nodes": 0, "edges": 0, "invalidated": 0}
 
         with conn.transaction():
             with conn.cursor() as cur:
+                # Anchor the pre-deletion moment as the FIRST statement inside the transaction, so
+                # the AS OF SYSTEM TIME proof cannot miss rows written between the anchor and delete.
+                cur.execute("SELECT cluster_logical_timestamp()::string")
+                t_before = cur.fetchone()[0]
+
                 # subject-exclusive nodes: subject is present AND is the ONLY distinct subject
                 cur.execute(
                     """
@@ -101,6 +104,8 @@ def forget(subject: str, workspace: str = "default") -> dict:
 def prior_state(subject: str, t_before: str, workspace: str = "default") -> list[dict]:
     """Proof-of-prior-existence: reconstruct what the graph knew about `subject` just before erasure,
     via AS OF SYSTEM TIME. Returns the nodes that existed then. (AOST timestamp must be a literal.)"""
+    if not re.fullmatch(r"-?\d+(\.\d+)?", str(t_before)):
+        raise ValueError("invalid AS OF SYSTEM TIME anchor")
     with store.connect() as conn, conn.cursor() as cur:
         cur.execute(
             f"SELECT name, type, description FROM nodes AS OF SYSTEM TIME {t_before} "

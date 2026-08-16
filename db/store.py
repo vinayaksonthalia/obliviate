@@ -100,12 +100,23 @@ def get_or_create_dek(conn, workspace: str, subject: str) -> bytes:
             if destroyed is not None or wrapped is None:
                 raise KeyDestroyed(subject)
             return _open(_root_key(), wrapped)
+        # Mint a key but only persist it if none exists yet (ON CONFLICT DO NOTHING), then re-read
+        # the WINNING key — so two concurrent first-ingests converge on one key instead of one of
+        # them encrypting a document under a key that gets overwritten (and thus lost forever).
         dek = AESGCM.generate_key(bit_length=256)
         cur.execute(
-            "UPSERT INTO subject_keys (workspace, subject, wrapped_dek) VALUES (%s, %s, %s)",
+            "INSERT INTO subject_keys (workspace, subject, wrapped_dek) VALUES (%s, %s, %s) "
+            "ON CONFLICT (workspace, subject) DO NOTHING",
             (workspace, subject, _seal(_root_key(), dek)),
         )
-        return dek
+        cur.execute(
+            "SELECT wrapped_dek, destroyed_at FROM subject_keys WHERE workspace = %s AND subject = %s",
+            (workspace, subject),
+        )
+        wrapped, destroyed = cur.fetchone()
+        if destroyed is not None or wrapped is None:
+            raise KeyDestroyed(subject)
+        return _open(_root_key(), wrapped)
 
 
 def encrypt_for(conn, workspace: str, subject: str, text: str) -> bytes:

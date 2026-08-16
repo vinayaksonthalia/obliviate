@@ -55,8 +55,16 @@ def public_key_pem() -> str | None:
 
 
 def issue(receipt: dict, proof_prior: list, proof_absence: dict, issued_at: str) -> dict:
-    """Build → sign → (optionally) store an erasure certificate. Returns cert metadata."""
-    subject_sha = hashlib.sha256(receipt["subject"].encode()).hexdigest()
+    """Build → sign → (optionally) store an erasure certificate. Returns cert metadata.
+
+    Claims are precise about what erasure guarantees: the subject's source DOCUMENTS are
+    encrypted and their key destroyed (content cryptographically unrecoverable); exclusive graph
+    entities + edges are deleted; entities shared with surviving subjects are retained for them
+    with this subject's provenance removed. We do NOT claim the derived graph text is crypto-shredded.
+    """
+    workspace = receipt.get("workspace", "default")
+    subject_sha = hashlib.sha256(f"{workspace}:{receipt['subject']}".encode()).hexdigest()
+    shredded = bool(proof_absence.get("key_shredded"))
     cert = {
         "obliviate_erasure_certificate": "v1",
         "subject_sha256": subject_sha,
@@ -64,13 +72,16 @@ def issue(receipt: dict, proof_prior: list, proof_absence: dict, issued_at: str)
         "t_before": receipt["t_before"],
         "removed": {
             "documents": receipt["docs"],
-            "nodes": receipt["nodes"],
-            "edges": receipt["edges"],
-            "shared_invalidated": receipt["invalidated"],
+            "exclusive_nodes": receipt["nodes"],
+            "exclusive_edges": receipt["edges"],
+            "shared_nodes_retained": receipt["invalidated"],
         },
         "prior_existence_entities": len(proof_prior),
-        "key_crypto_shredded": bool(proof_absence.get("key_shredded")),
-        "residual_recoverable": False,
+        "guarantees": {
+            "document_content_crypto_shredded": shredded,
+            "exclusive_graph_deleted": True,
+            "subject_provenance_removed_from_shared_nodes": True,
+        },
         "issued_at": issued_at,
     }
     body = json.dumps(cert, sort_keys=True, separators=(",", ":")).encode()

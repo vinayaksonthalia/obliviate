@@ -51,12 +51,17 @@ def _retrieve(conn, query: str, workspace: str = "default", k: int = 6, hops: in
     """Vector-ANN seed nodes, then expand `hops` in the graph via a recursive CTE (workspace-scoped)."""
     qvec = store.to_vector(client.embed(query))
     with conn.cursor() as cur:
+        # index-backed ANN for candidates, then re-rank by distance / weight so demoted
+        # (soft-forgotten) nodes sink. weight: 0.5 neutral .. 0.05 deeply demoted.
         cur.execute(
-            "SELECT id FROM nodes WHERE workspace = %s AND deleted_at IS NULL AND embedding IS NOT NULL "
+            "SELECT id, weight, (embedding <=> %s) AS dist FROM nodes "
+            "WHERE workspace = %s AND deleted_at IS NULL AND embedding IS NOT NULL "
             "ORDER BY embedding <=> %s LIMIT %s",
-            (workspace, qvec, k),
+            (qvec, workspace, qvec, k * 4),
         )
-        seed_ids = [r[0] for r in cur.fetchall()]
+        cand = cur.fetchall()
+        cand.sort(key=lambda r: float(r[2]) / max(float(r[1] or 0.5), 0.05))
+        seed_ids = [r[0] for r in cand[:k]]
         if not seed_ids:
             return [], []
 
