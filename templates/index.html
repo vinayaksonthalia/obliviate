@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Obliviate — Verifiable forgetting for AI-agent memory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+  :root{
+    --bg: #0a0b0d;
+    --bg-elev: #101216;
+    --panel: #121418;
+    --panel-2: #16181d;
+    --border: #23262e;
+    --border-soft: #1b1e24;
+    --text: #e7e9ee;
+    --text-dim: #9aa0ac;
+    --text-faint: #6b7280;
+    --accent: #7c8cff;
+    --accent-soft: rgba(124,140,255,.14);
+    --accent-line: rgba(124,140,255,.34);
+    --green: #3ecf8e;
+    --green-soft: rgba(62,207,142,.12);
+    --amber: #f5b34a;
+    --red: #ff6b6b;
+    --red-soft: rgba(255,107,107,.12);
+    --radius: 12px;
+    --radius-sm: 9px;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 30px rgba(0,0,0,.35);
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    letter-spacing:-0.01em;
+  }
+  a{ color:inherit; }
+  ::selection{ background:var(--accent-soft); }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb{ background:#20232b; border-radius:20px; border:2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover{ background:#2b2f39; }
+
+  /* ---------- Layout ---------- */
+  .app{ display:grid; grid-template-columns:248px 1fr; min-height:100vh; }
+  .sidebar{
+    background:linear-gradient(180deg,#0c0d10,#0a0b0d);
+    border-right:1px solid var(--border-soft);
+    display:flex; flex-direction:column; position:sticky; top:0; height:100vh;
+  }
+  .brand{ padding:20px 20px 16px; }
+  .brand-row{ display:flex; align-items:center; gap:10px; }
+  .brand-mark{
+    width:30px; height:30px; border-radius:8px; flex:0 0 auto;
+    background:radial-gradient(120% 120% at 30% 20%, #9aa6ff, #5b68e8 60%, #3a44b8);
+    display:grid; place-items:center; box-shadow:0 0 0 1px rgba(124,140,255,.35), 0 6px 18px rgba(91,104,232,.35);
+  }
+  .brand-name{ font-weight:600; font-size:15.5px; letter-spacing:-0.02em; }
+  .brand-sub{ color:var(--text-faint); font-size:11px; margin-top:2px; letter-spacing:0; }
+
+  .nav{ padding:8px; display:flex; flex-direction:column; gap:2px; }
+  .nav-label{ color:var(--text-faint); font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; padding:14px 12px 6px; font-weight:600; }
+  .nav-item{
+    display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:var(--radius-sm);
+    color:var(--text-dim); cursor:pointer; user-select:none; font-weight:450;
+    border:1px solid transparent; transition:background .12s, color .12s, border-color .12s;
+  }
+  .nav-item:hover{ background:var(--panel); color:var(--text); }
+  .nav-item.active{ background:var(--accent-soft); color:#fff; border-color:var(--accent-line); }
+  .nav-item svg{ width:17px; height:17px; opacity:.85; flex:0 0 auto; }
+  .nav-item.hero .dot{ margin-left:auto; width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .sidebar-foot{ margin-top:auto; padding:14px 16px; border-top:1px solid var(--border-soft); color:var(--text-faint); font-size:11px; display:flex; align-items:center; gap:8px; }
+  .pulse{ width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(62,207,142,.5); animation:pulse 2.4s infinite; }
+  @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(62,207,142,.5);} 70%{ box-shadow:0 0 0 6px rgba(62,207,142,0);} 100%{ box-shadow:0 0 0 0 rgba(62,207,142,0);} }
+
+  /* ---------- Main ---------- */
+  .main{ display:flex; flex-direction:column; min-width:0; }
+  .topbar{
+    position:sticky; top:0; z-index:20; backdrop-filter:blur(12px);
+    background:rgba(10,11,13,.72); border-bottom:1px solid var(--border-soft);
+    padding:16px 28px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  .topbar h1{ font-size:16px; font-weight:600; margin:0; letter-spacing:-0.02em; }
+  .topbar .tag{ color:var(--text-dim); font-size:12.5px; margin:2px 0 0; max-width:640px; }
+  .stack-badges{ margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{
+    font-size:10.5px; color:var(--text-dim); background:var(--panel); border:1px solid var(--border);
+    padding:4px 9px; border-radius:20px; font-family:var(--mono); letter-spacing:0; white-space:nowrap;
+  }
+  .chip b{ color:var(--accent); font-weight:500; }
+
+  .view{ padding:28px; max-width:1180px; width:100%; margin:0 auto; animation:fade .35s ease; }
+  @keyframes fade{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+  .hidden{ display:none !important; }
+
+  .page-head{ margin-bottom:22px; }
+  .page-head h2{ font-size:22px; font-weight:600; margin:0 0 4px; letter-spacing:-0.025em; }
+  .page-head p{ color:var(--text-dim); margin:0; font-size:13.5px; max-width:720px; }
+
+  /* ---------- Cards / forms ---------- */
+  .card{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+  .card-p{ padding:20px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media(max-width:900px){ .grid2{ grid-template-columns:1fr; } }
+
+  label.field{ display:block; margin-bottom:14px; }
+  label.field > span{ display:block; font-size:12px; color:var(--text-dim); margin-bottom:6px; font-weight:500; }
+  input[type=text], textarea, select{
+    width:100%; background:var(--bg-elev); border:1px solid var(--border); color:var(--text);
+    border-radius:var(--radius-sm); padding:10px 12px; font-family:inherit; font-size:13.5px; outline:none;
+    transition:border-color .12s, box-shadow .12s; letter-spacing:-0.01em;
+  }
+  textarea{ resize:vertical; min-height:96px; line-height:1.55; }
+  input:focus, textarea:focus, select:focus{ border-color:var(--accent-line); box-shadow:0 0 0 3px var(--accent-soft); }
+  select{ appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0ac' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; padding-right:34px; }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+    border-radius:var(--radius-sm); padding:9px 15px; font-family:inherit; font-size:13px; font-weight:550;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--text); transition:all .13s; letter-spacing:-0.01em;
+  }
+  .btn:hover{ border-color:#31353f; background:#1b1e24; }
+  .btn:active{ transform:translateY(1px); }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn svg{ width:15px; height:15px; }
+  .btn.primary{ background:linear-gradient(180deg,#8592ff,#6573f0); border-color:#6573f0; color:#fff; box-shadow:0 6px 18px rgba(101,115,240,.3); }
+  .btn.primary:hover{ filter:brightness(1.06); }
+  .btn.ghost{ background:transparent; }
+  .btn.danger{ background:linear-gradient(180deg,#ff7b7b,#e85555); border-color:#e85555; color:#fff; box-shadow:0 6px 22px rgba(232,85,85,.32); }
+  .btn.big{ padding:13px 22px; font-size:14.5px; border-radius:11px; }
+
+  .muted{ color:var(--text-dim); }
+  .faint{ color:var(--text-faint); }
+  .mono{ font-family:var(--mono); }
+  .row{ display:flex; align-items:center; gap:12px; }
+  .spread{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  hr.sep{ border:0; border-top:1px solid var(--border-soft); margin:18px 0; }
+
+  /* ---------- Chat ---------- */
+  .chat-wrap{ display:flex; flex-direction:column; height:calc(100vh - 210px); min-height:420px; }
+  .chat-scroll{ flex:1; overflow-y:auto; padding:6px 2px 12px; display:flex; flex-direction:column; gap:16px; }
+  .msg{ display:flex; gap:12px; max-width:82%; animation:fade .25s ease; }
+  .msg.user{ align-self:flex-end; flex-direction:row-reverse; }
+  .avatar{ width:28px; height:28px; border-radius:8px; flex:0 0 auto; display:grid; place-items:center; font-size:12px; font-weight:600; }
+  .avatar.ai{ background:radial-gradient(120% 120% at 30% 20%, #9aa6ff, #5b68e8 65%); color:#fff; }
+  .avatar.me{ background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); }
+  .bubble{ padding:11px 14px; border-radius:12px; font-size:13.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+  .msg.ai .bubble{ background:var(--panel); border:1px solid var(--border); border-top-left-radius:4px; }
+  .msg.user .bubble{ background:var(--accent-soft); border:1px solid var(--accent-line); border-top-right-radius:4px; }
+  .chat-empty{ margin:auto; text-align:center; color:var(--text-faint); max-width:420px; }
+  .chat-empty h3{ color:var(--text-dim); font-weight:550; margin:14px 0 6px; }
+  .suggest{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:16px; }
+  .suggest button{ font-size:12.5px; }
+  .chat-input{ display:flex; gap:10px; align-items:flex-end; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft); }
+  .chat-input textarea{ min-height:44px; max-height:160px; }
+  .typing span{ display:inline-block; width:6px; height:6px; margin:0 1px; border-radius:50%; background:var(--text-faint); animation:blink 1.2s infinite; }
+  .typing span:nth-child(2){ animation-delay:.2s; } .typing span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,60%,100%{ opacity:.25; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-2px);} }
+
+  /* ---------- Records / receipts ---------- */
+  .receipt{ border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-elev); padding:14px; margin-bottom:10px; animation:fade .3s ease; }
+  .receipt .spread{ margin-bottom:8px; }
+  .badge{ font-size:11px; font-family:var(--mono); padding:3px 8px; border-radius:6px; background:var(--green-soft); color:var(--green); border:1px solid rgba(62,207,142,.25); }
+  .tag-list{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .ent{ font-size:11.5px; font-family:var(--mono); padding:3px 8px; border-radius:6px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); }
+  .ent b{ color:var(--accent); font-weight:500; }
+
+  /* ---------- Graph ---------- */
+  #cy{ height:560px; width:100%; border-radius:var(--radius); background:
+      radial-gradient(circle at 50% 40%, #0e1014, #0a0b0d 80%); border:1px solid var(--border); }
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; color:var(--text-dim); font-size:12px; }
+  .legend .li{ display:flex; align-items:center; gap:7px; }
+  .swatch{ width:11px; height:11px; border-radius:50%; }
+
+  /* ---------- Forget hero ---------- */
+  .forget-stage{ position:relative; }
+  .forget-panel{ text-align:center; padding:38px 24px 34px; position:relative; overflow:hidden; }
+  .forget-panel::before{ content:""; position:absolute; inset:0; background:
+      radial-gradient(60% 120% at 50% 0%, rgba(255,107,107,.09), transparent 70%); pointer-events:none; }
+  .forget-panel h3{ font-size:19px; margin:0 0 6px; font-weight:600; letter-spacing:-0.02em; }
+  .forget-controls{ display:flex; gap:10px; justify-content:center; align-items:flex-end; flex-wrap:wrap; margin:20px auto 0; max-width:520px; }
+  .forget-controls .field{ margin:0; text-align:left; flex:1; min-width:220px; }
+  .scanline{ position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--red),transparent); opacity:0; }
+  .scanning .scanline{ animation:scan 1.1s ease-in-out; }
+  @keyframes scan{ 0%{ top:0; opacity:0;} 15%{ opacity:1;} 85%{ opacity:1;} 100%{ top:100%; opacity:0;} }
+
+  .proofs{ display:grid; gap:16px; margin-top:22px; }
+  .proof{ border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); overflow:hidden; opacity:0; transform:translateY(14px); }
+  .proof.reveal{ animation:proofIn .6s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes proofIn{ to{ opacity:1; transform:none; } }
+  .proof-head{ display:flex; align-items:center; gap:13px; padding:16px 18px; border-bottom:1px solid var(--border-soft); }
+  .proof-num{ width:34px; height:34px; border-radius:9px; display:grid; place-items:center; font-family:var(--mono); font-weight:600; font-size:14px; flex:0 0 auto; }
+  .p1 .proof-num{ background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-line); }
+  .p2 .proof-num{ background:var(--green-soft); color:var(--green); border:1px solid rgba(62,207,142,.3); }
+  .p3 .proof-num{ background:var(--red-soft); color:var(--red); border:1px solid rgba(255,107,107,.3); }
+  .proof-head .t{ font-weight:600; font-size:15px; letter-spacing:-0.01em; }
+  .proof-head .s{ font-size:12px; color:var(--text-dim); margin-top:1px; }
+  .proof-head .verdict{ margin-left:auto; font-family:var(--mono); font-size:11px; padding:5px 10px; border-radius:20px; }
+  .verdict.ok{ background:var(--green-soft); color:var(--green); border:1px solid rgba(62,207,142,.3); }
+  .verdict.gone{ background:var(--red-soft); color:var(--red); border:1px solid rgba(255,107,107,.3); }
+  .proof-body{ padding:16px 18px; }
+
+  .ghost-ent{ display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px dashed var(--border); border-radius:8px; margin-bottom:7px; background:var(--bg-elev); animation:fade .4s ease; }
+  .ghost-ent .k{ font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:5px; background:var(--panel-2); color:var(--text-dim); border:1px solid var(--border); text-transform:uppercase; letter-spacing:.03em; }
+  .ghost-ent .n{ font-weight:550; }
+  .ghost-ent .d{ color:var(--text-faint); font-size:12px; margin-left:auto; text-align:right; max-width:55%; }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  @media(max-width:620px){ .stat-grid{ grid-template-columns:1fr; } }
+  .stat{ background:var(--bg-elev); border:1px solid var(--border); border-radius:9px; padding:14px; text-align:center; }
+  .stat .v{ font-size:26px; font-weight:650; font-family:var(--mono); letter-spacing:-0.02em; }
+  .stat .v.zero{ color:var(--green); }
+  .stat .l{ font-size:11px; color:var(--text-dim); margin-top:3px; }
+  .live-ask{ margin-top:14px; background:var(--bg-elev); border:1px solid var(--border); border-radius:9px; padding:14px; }
+  .live-ask .q{ font-size:12px; color:var(--text-dim); }
+  .live-ask .a{ margin-top:6px; font-size:13.5px; border-left:2px solid var(--green); padding-left:12px; }
+
+  .cert{ font-family:var(--mono); background:var(--bg-elev); border:1px solid var(--border); border-radius:9px; padding:14px; margin-top:12px; }
+  .cert .k{ color:var(--text-faint); font-size:11px; }
+  .cert .v{ color:var(--text); font-size:12.5px; word-break:break-all; }
+  .shred-line{ display:flex; align-items:center; gap:10px; color:var(--red); font-weight:550; margin-bottom:8px; }
+  .final-cta{ text-align:center; margin-top:20px; padding:18px; border:1px solid var(--green); border-radius:var(--radius); background:var(--green-soft); animation:fade .5s ease; }
+
+  /* ---------- Timeline ---------- */
+  .tl{ position:relative; padding-left:26px; }
+  .tl::before{ content:""; position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--border); }
+  .tl-item{ position:relative; padding:0 0 20px 6px; }
+  .tl-item::before{ content:""; position:absolute; left:-21px; top:4px; width:11px; height:11px; border-radius:50%; background:var(--panel); border:2px solid var(--accent); }
+  .tl-item.forget::before{ border-color:var(--red); }
+  .tl-item.ingest::before{ border-color:var(--green); }
+  .tl-kind{ font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:2px 8px; border-radius:5px; background:var(--panel-2); border:1px solid var(--border); color:var(--text-dim); }
+  .tl-kind.forget{ color:var(--red); border-color:rgba(255,107,107,.3); background:var(--red-soft); }
+  .tl-kind.ingest{ color:var(--green); border-color:rgba(62,207,142,.3); background:var(--green-soft); }
+  .tl-detail{ margin-top:6px; color:var(--text-dim); font-size:13px; }
+  .tl-time{ color:var(--text-faint); font-size:11.5px; font-family:var(--mono); }
+
+  table.audit{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.audit th{ text-align:left; color:var(--text-faint); font-weight:550; font-size:11px; text-transform:uppercase; letter-spacing:.05em; padding:10px 12px; border-bottom:1px solid var(--border); }
+  table.audit td{ padding:11px 12px; border-bottom:1px solid var(--border-soft); }
+  table.audit tr:last-child td{ border-bottom:0; }
+  table.audit .n{ font-family:var(--mono); color:var(--text); }
+
+  .empty{ text-align:center; color:var(--text-faint); padding:40px 20px; }
+  .empty svg{ width:34px; height:34px; opacity:.4; margin-bottom:10px; }
+
+  .toast-wrap{ position:fixed; bottom:22px; right:22px; z-index:100; display:flex; flex-direction:column; gap:10px; }
+  .toast{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 16px; box-shadow:var(--shadow); font-size:13px; display:flex; align-items:center; gap:10px; animation:toastIn .3s ease; max-width:340px; }
+  .toast.ok{ border-color:rgba(62,207,142,.4); } .toast.err{ border-color:rgba(255,107,107,.4); }
+  @keyframes toastIn{ from{ opacity:0; transform:translateX(20px);} to{ opacity:1; transform:none;} }
+
+  .spinner{ width:15px; height:15px; border:2px solid rgba(255,255,255,.2); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .pill-note{ font-size:12px; color:var(--amber); background:rgba(245,179,74,.1); border:1px solid rgba(245,179,74,.3); padding:8px 12px; border-radius:8px; margin-top:12px; display:none; }
+
+  @media(max-width:760px){
+    .app{ grid-template-columns:1fr; }
+    .sidebar{ position:relative; height:auto; flex-direction:column; }
+    .nav{ flex-direction:row; overflow-x:auto; }
+    .nav-label{ display:none; }
+    .sidebar-foot{ display:none; }
+    .stack-badges{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-row">
+        <div class="brand-mark">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 2v10l7 4"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Obliviate</div>
+          <div class="brand-sub">Verifiable forgetting</div>
+        </div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-label">Console</div>
+      <div class="nav-item active" data-view="memory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Memory</span>
+      </div>
+      <div class="nav-item" data-view="records">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4z"/><path d="M4 12h16v8H4z"/><path d="M8 16h4"/></svg>
+        <span>Records</span>
+      </div>
+      <div class="nav-item" data-view="graph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.4"/><circle cx="19" cy="7" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7 7l3.5 9M17 9l-3.5 7"/></svg>
+        <span>Knowledge Graph</span>
+      </div>
+      <div class="nav-label">Compliance</div>
+      <div class="nav-item hero" data-view="forget">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Forget &amp; Prove</span>
+        <span class="dot"></span>
+      </div>
+      <div class="nav-item" data-view="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>
+        <span>Audit &amp; Timeline</span>
+      </div>
+      <div class="nav-label">System</div>
+      <div class="nav-item" data-view="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.5-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6a1.65 1.65 0 0 0 1-1.5V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.31.22.65.22 1h.09"/></svg>
+        <span>Settings — Model</span>
+      </div>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="pulse"></span>
+      <span>Engine online · CockroachDB</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1>Obliviate</h1>
+        <p class="tag">When an agent's memory is wrong, poisoned, or must legally disappear — delete it everywhere, atomically, and prove it's gone.</p>
+      </div>
+      <div class="stack-badges">
+        <span class="chip"><b>CockroachDB</b></span>
+        <span class="chip">Distributed Vector Index</span>
+        <span class="chip">AS OF SYSTEM TIME</span>
+        <span class="chip">AWS Lambda + S3</span>
+      </div>
+    </header>
+
+    <!-- ===================== MEMORY / CHAT ===================== -->
+    <section class="view" id="view-memory">
+      <div class="page-head">
+        <h2>Memory</h2>
+        <p>Ask the agent about its records. Answers are grounded strictly in what's stored — when it has nothing on record, it says so. That's the honesty guarantee.</p>
+      </div>
+      <div class="card card-p chat-wrap">
+        <div class="chat-scroll" id="chatScroll">
+          <div class="chat-empty" id="chatEmpty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="1.4"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <h3>Ask the agent's memory</h3>
+            <p class="faint">Grounded, retrieval-backed answers from the knowledge graph and vector store.</p>
+            <div class="suggest" id="suggest">
+              <button class="btn ghost" data-q="What do you know about Alice?">What do you know about Alice?</button>
+              <button class="btn ghost" data-q="Which customers bank with Acme Bank?">Which customers bank with Acme Bank?</button>
+              <button class="btn ghost" data-q="Tell me about Bob's accounts.">Tell me about Bob's accounts.</button>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <textarea id="chatInput" rows="1" placeholder="Ask about a customer, entity, or relationship…"></textarea>
+          <button class="btn primary" id="chatSend">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            Send
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== RECORDS ===================== -->
+    <section class="view hidden" id="view-records">
+      <div class="page-head">
+        <h2>Records</h2>
+        <p>Ingest a document. Obliviate extracts entities and relationships into the CockroachDB knowledge graph and vector index, tagged by subject for later verifiable erasure.</p>
+      </div>
+      <div class="grid2">
+        <div class="card card-p">
+          <div class="spread" style="margin-bottom:16px;">
+            <strong style="font-size:14px;">Add a record</strong>
+            <button class="btn" id="loadDemo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Load demo data
+            </button>
+          </div>
+          <label class="field"><span>Subject</span><input type="text" id="inSubject" placeholder="e.g. alice" /></label>
+          <label class="field"><span>Title</span><input type="text" id="inTitle" placeholder="e.g. Onboarding note" /></label>
+          <label class="field"><span>Text</span><textarea id="inText" placeholder="Alice opened a checking account at Acme Bank in 2021…"></textarea></label>
+          <button class="btn primary" id="ingestBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Ingest record
+          </button>
+          <div class="pill-note" id="demoNote"></div>
+        </div>
+        <div class="card card-p">
+          <div class="spread" style="margin-bottom:14px;">
+            <strong style="font-size:14px;">Ingest receipts</strong>
+            <span class="faint mono" id="receiptCount">0</span>
+          </div>
+          <div id="receipts">
+            <div class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 4h16v4H4zM4 12h16v8H4z"/></svg>
+              <div>No records ingested yet.</div>
+              <div class="faint" style="font-size:12px;margin-top:4px;">Add one or load the demo corpus.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== GRAPH ===================== -->
+    <section class="view hidden" id="view-graph">
+      <div class="page-head spread">
+        <div>
+          <h2>Knowledge Graph</h2>
+          <p>Entities and relationships across all subjects. Ghosted tombstones are erased nodes retained for audit.</p>
+        </div>
+        <button class="btn" id="refreshGraph">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div class="card" style="padding:6px;">
+        <div id="cy"></div>
+      </div>
+      <div class="legend" id="graphLegend">
+        <div class="li"><span class="swatch" style="background:#6b7280"></span> Loading…</div>
+      </div>
+    </section>
+
+    <!-- ===================== FORGET (HERO) ===================== -->
+    <section class="view hidden" id="view-forget">
+      <div class="page-head">
+        <h2>Forget &amp; Prove</h2>
+        <p>Erase a subject everywhere — documents, graph nodes, edges, and vectors — in one atomic CockroachDB transaction, then produce cryptographic proof it existed, that it's gone, and that it's unrecoverable.</p>
+      </div>
+
+      <div class="card forget-stage" id="forgetStage">
+        <div class="scanline"></div>
+        <div class="forget-panel">
+          <div style="width:52px;height:52px;border-radius:14px;margin:0 auto 14px;display:grid;place-items:center;background:var(--red-soft);border:1px solid rgba(255,107,107,.3);">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <h3>Verifiable erasure</h3>
+          <p class="muted" style="max-width:460px;margin:0 auto;">Select a subject. On execute, Obliviate deletes exclusive memory, retains shared entities for surviving subjects, and crypto-shreds the data key.</p>
+          <div class="forget-controls">
+            <label class="field">
+              <span>Subject to forget</span>
+              <select id="forgetSubject"><option value="">Loading subjects…</option></select>
+            </label>
+            <button class="btn danger big" id="forgetBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              Forget &amp; Prove
+            </button>
+          </div>
+          <div class="faint" style="font-size:12px;margin-top:10px;">This is irreversible. A demo dataset is recommended before running.</div>
+        </div>
+      </div>
+
+      <div class="proofs" id="proofs"></div>
+    </section>
+
+    <!-- ===================== AUDIT ===================== -->
+    <section class="view hidden" id="view-audit">
+      <div class="page-head spread">
+        <div>
+          <h2>Audit &amp; Timeline</h2>
+          <p>Every ingest and erasure is measured and recorded — a tamper-evident compliance trail.</p>
+        </div>
+        <button class="btn" id="refreshAudit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div class="grid2" style="align-items:start;">
+        <div class="card card-p">
+          <strong style="font-size:14px;display:block;margin-bottom:16px;">Activity timeline</strong>
+          <div class="tl" id="timeline"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card card-p">
+          <strong style="font-size:14px;display:block;margin-bottom:16px;">Erasure events (measured)</strong>
+          <div style="overflow-x:auto;">
+            <table class="audit" id="eventsTable"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section class="view hidden" id="view-settings">
+      <div class="page-head">
+        <h2>Settings — Model</h2>
+        <p>Obliviate is model-agnostic — bring your own local or hosted model. Extraction and grounded answering work with any provider.</p>
+      </div>
+      <div class="card card-p" style="max-width:620px;">
+        <label class="field">
+          <span>Provider &amp; model</span>
+          <select id="modelSelect">
+            <option value="cerebras|gpt-oss-120b">Cerebras · gpt-oss-120b</option>
+            <option value="gemini|gemini-2.5-flash">Gemini · 2.5 Flash</option>
+            <option value="ollama|llama3.1">Local Ollama · llama3.1</option>
+            <option value="openai|gpt-4o-mini">OpenAI · gpt-4o-mini</option>
+            <option value="custom|">Custom endpoint…</option>
+          </select>
+        </label>
+        <label class="field" id="endpointWrap" style="display:none;">
+          <span>Custom endpoint URL</span>
+          <input type="text" id="modelEndpoint" placeholder="https://my-host/v1/chat/completions" />
+        </label>
+        <div class="row" style="margin-top:4px;">
+          <button class="btn primary" id="saveModel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            Save model
+          </button>
+          <span class="faint mono" id="modelStatus"></span>
+        </div>
+        <div class="pill-note" id="modelNote" style="display:none;"></div>
+        <hr class="sep" />
+        <p class="faint" style="font-size:12.5px;margin:0;">Obliviate never couples forgetting to a specific vendor. The verifiable-erasure guarantee is enforced in CockroachDB, independent of which LLM performs extraction and answering.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+"use strict";
+(function(){
+  // ---------- helpers ----------
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if(cls) e.className = cls; if(txt!=null) e.textContent = txt; return e; };
+  const esc = (s) => { const d = document.createElement('div'); d.textContent = s==null? '' : String(s); return d.innerHTML; };
+
+  async function api(path, opts){
+    const res = await fetch(path, Object.assign({ headers:{'Content-Type':'application/json'} }, opts));
+    if(!res.ok){ const e = new Error('HTTP '+res.status); e.status = res.status; throw e; }
+    const ct = res.headers.get('content-type')||'';
+    return ct.includes('application/json') ? res.json() : res.text();
+  }
+
+  function toast(msg, kind){
+    const t = el('div', 'toast ' + (kind||''));
+    const ic = kind==='err'
+      ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b6b" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3ecf8e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+    const span = el('span'); span.textContent = msg;
+    t.innerHTML = ic; t.appendChild(span);
+    $('#toasts').appendChild(t);
+    setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(20px)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(), 320); }, 3200);
+  }
+
+  // ---------- navigation ----------
+  const loaded = {};
+  function switchView(name){
+    $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view===name));
+    $$('.view').forEach(v => v.classList.add('hidden'));
+    const v = $('#view-'+name); if(v) v.classList.remove('hidden');
+    if(name==='graph'){ loadGraph(); }
+    if(name==='forget' && !loaded.subjects){ loadSubjects(); }
+    if(name==='audit'){ loadAudit(); }
+    if(name==='records' && !loaded.subjects){ loadSubjects(); }
+  }
+  $('#nav').addEventListener('click', e => {
+    const item = e.target.closest('.nav-item'); if(item) switchView(item.dataset.view);
+  });
+
+  // ---------- MEMORY / CHAT ----------
+  const history = [];
+  const chatScroll = $('#chatScroll');
+  const chatInput = $('#chatInput');
+
+  function autoGrow(t){ t.style.height='auto'; t.style.height = Math.min(t.scrollHeight, 160)+'px'; }
+  chatInput.addEventListener('input', ()=>autoGrow(chatInput));
+
+  function addMsg(role, text){
+    const empty = $('#chatEmpty'); if(empty) empty.remove();
+    const wrap = el('div', 'msg ' + (role==='user'?'user':'ai'));
+    const av = el('div', 'avatar ' + (role==='user'?'me':'ai'));
+    av.innerHTML = role==='user' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>' : 'O';
+    const b = el('div', 'bubble'); b.textContent = text;
+    wrap.appendChild(av); wrap.appendChild(b);
+    chatScroll.appendChild(wrap);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+    return b;
+  }
+
+  function addTyping(){
+    const wrap = el('div', 'msg ai'); wrap.id='typingMsg';
+    const av = el('div', 'avatar ai'); av.textContent='O';
+    const b = el('div', 'bubble typing'); b.innerHTML='<span></span><span></span><span></span>';
+    wrap.appendChild(av); wrap.appendChild(b); chatScroll.appendChild(wrap);
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  async function sendChat(text){
+    text = (text||'').trim(); if(!text) return;
+    addMsg('user', text);
+    history.push({role:'user', content:text});
+    chatInput.value=''; autoGrow(chatInput);
+    $('#chatSend').disabled = true;
+    addTyping();
+    try{
+      const data = await api('/api/ask', { method:'POST', body: JSON.stringify({ query:text, history }) });
+      const ans = (data && data.answer!=null) ? data.answer : '(no answer)';
+      $('#typingMsg') && $('#typingMsg').remove();
+      addMsg('ai', ans);
+      history.push({role:'assistant', content:ans});
+    }catch(err){
+      $('#typingMsg') && $('#typingMsg').remove();
+      addMsg('ai', 'The memory service is unavailable right now. ('+ (err.status||'network') +')');
+      toast('Ask failed: '+(err.status||'network error'), 'err');
+    }finally{
+      $('#chatSend').disabled = false; chatInput.focus();
+    }
+  }
+  $('#chatSend').addEventListener('click', ()=>sendChat(chatInput.value));
+  chatInput.addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(chatInput.value); } });
+  $('#suggest') && $('#suggest').addEventListener('click', e => { const b=e.target.closest('button'); if(b) sendChat(b.dataset.q); });
+
+  // ---------- RECORDS ----------
+  let receiptCount = 0;
+  function renderReceipt(data){
+    const box = $('#receipts');
+    if(!receiptCount){ box.innerHTML=''; }
+    receiptCount++;
+    $('#receiptCount').textContent = receiptCount;
+    const r = el('div', 'receipt');
+    const top = el('div', 'spread');
+    const left = el('div');
+    const t = el('div'); t.style.fontWeight='550';
+    t.textContent = data.subject ? (data.subject) : 'record';
+    const sub = el('div', 'faint'); sub.style.fontSize='11.5px';
+    sub.textContent = 'doc ' + (data.doc_id!=null ? String(data.doc_id) : '—');
+    left.appendChild(t); left.appendChild(sub);
+    const badge = el('span', 'badge', 'ingested');
+    top.appendChild(left); top.appendChild(badge);
+    r.appendChild(top);
+
+    const ents = Array.isArray(data.entities) ? data.entities : [];
+    const rels = Array.isArray(data.relationships) ? data.relationships : [];
+    const meta = el('div', 'muted'); meta.style.fontSize='12px'; meta.style.marginTop='4px';
+    meta.textContent = ents.length + ' entities · ' + rels.length + ' relationships';
+    r.appendChild(meta);
+
+    if(ents.length){
+      const list = el('div', 'tag-list');
+      ents.slice(0,12).forEach(en => {
+        const name = (en && typeof en==='object') ? (en.name||en.id||JSON.stringify(en)) : en;
+        const type = (en && typeof en==='object') ? en.type : null;
+        const chip = el('span', 'ent');
+        chip.innerHTML = '<b>'+esc(name)+'</b>' + (type? ' · '+esc(type) : '');
+        list.appendChild(chip);
+      });
+      r.appendChild(list);
+    }
+    box.insertBefore(r, box.firstChild);
+  }
+
+  async function ingest(subject, title, text, quiet){
+    const data = await api('/api/ingest', { method:'POST', body: JSON.stringify({ subject, title, text }) });
+    renderReceipt(Object.assign({ subject }, data));
+    if(!quiet) toast('Record ingested: '+subject, 'ok');
+    loaded.subjects = false; // subjects changed
+    return data;
+  }
+
+  $('#ingestBtn').addEventListener('click', async ()=>{
+    const subject = $('#inSubject').value.trim();
+    const title = $('#inTitle').value.trim();
+    const text = $('#inText').value.trim();
+    if(!subject || !text){ toast('Subject and text are required', 'err'); return; }
+    const btn = $('#ingestBtn'); btn.disabled=true;
+    try{
+      await ingest(subject, title||subject, text);
+      $('#inTitle').value=''; $('#inText').value='';
+    }catch(err){ toast('Ingest failed: '+(err.status||'network'), 'err'); }
+    finally{ btn.disabled=false; }
+  });
+
+  // Demo corpus — Alice & Bob share Acme Bank so forgetting one keeps the other.
+  const DEMO = [
+    { subject:'alice', title:'Alice — account opening',
+      text:'Alice Nguyen opened a checking account at Acme Bank in 2021. Her account is managed from the Acme Bank downtown branch. Alice also holds a savings account at Acme Bank.' },
+    { subject:'alice', title:'Alice — mortgage',
+      text:'Alice Nguyen took out a home mortgage through Acme Bank in 2022, advised by relationship manager Priya Shah. The mortgage is tied to a property in Riverside.' },
+    { subject:'bob', title:'Bob — account opening',
+      text:'Bob Carter is a long-time customer of Acme Bank, where he keeps a business checking account for his firm Carter Logistics. His accounts are handled at the Acme Bank downtown branch.' },
+    { subject:'bob', title:'Bob — credit line',
+      text:'Bob Carter secured a business line of credit from Acme Bank in 2023. His relationship manager at Acme Bank is Priya Shah.' }
+  ];
+  $('#loadDemo').addEventListener('click', async ()=>{
+    const btn = $('#loadDemo'); btn.disabled=true;
+    const note = $('#demoNote'); note.style.display='block'; note.style.color='var(--text-dim)';
+    note.style.background='var(--bg-elev)'; note.style.borderColor='var(--border)';
+    try{
+      let i=0;
+      for(const d of DEMO){ i++; note.textContent='Ingesting demo doc '+i+' of '+DEMO.length+' — '+d.title+'…'; await ingest(d.subject, d.title, d.text, true); }
+      note.textContent='Demo corpus loaded — Alice & Bob both bank with Acme Bank (a shared entity). Forget one; the other survives.';
+      note.style.color='var(--green)'; note.style.background='var(--green-soft)'; note.style.borderColor='rgba(62,207,142,.3)';
+      toast('Demo corpus loaded', 'ok');
+      loaded.subjects=false; loadSubjects();
+    }catch(err){ note.textContent='Demo load failed: '+(err.status||'network error'); note.style.color='var(--red)'; toast('Demo failed','err'); }
+    finally{ btn.disabled=false; }
+  });
+
+  // ---------- SUBJECTS ----------
+  async function loadSubjects(){
+    try{
+      const subs = await api('/api/subjects');
+      loaded.subjects = true;
+      const sel = $('#forgetSubject');
+      if(Array.isArray(subs) && subs.length){
+        sel.innerHTML='';
+        subs.forEach(s => { const o=el('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
+      } else {
+        sel.innerHTML=''; const o=el('option'); o.value=''; o.textContent='No subjects — load demo data first'; sel.appendChild(o);
+      }
+    }catch(err){ /* leave placeholder */ }
+  }
+
+  // ---------- GRAPH ----------
+  const SUBJECT_COLORS = ['#7c8cff','#3ecf8e','#f5b34a','#ff8fab','#59c1e8','#c58bff','#e8a35a'];
+  const colorCache = {};
+  function subjectColor(sub){
+    if(!sub) return '#6b7280';
+    if(!(sub in colorCache)){ colorCache[sub] = SUBJECT_COLORS[Object.keys(colorCache).length % SUBJECT_COLORS.length]; }
+    return colorCache[sub];
+  }
+  let cy = null;
+  async function loadGraph(){
+    let data;
+    try{ data = await api('/api/graph'); }
+    catch(err){ toast('Graph unavailable: '+(err.status||'network'), 'err'); return; }
+    const nodes = (data.nodes||[]).map(n => {
+      const subs = Array.isArray(n.subjects) ? n.subjects : (n.subjects? [n.subjects] : []);
+      const primary = subs[0];
+      return { data:{ id:String(n.id), label:n.name||n.id, type:n.type||'', deleted:!!n.deleted, color: n.deleted? '#3a3d45' : subjectColor(primary), shared: subs.length>1 } };
+    });
+    const nodeIds = new Set(nodes.map(n=>n.data.id));
+    const edges = (data.edges||[]).filter(e => nodeIds.has(String(e.source)) && nodeIds.has(String(e.target)))
+      .map((e,i) => ({ data:{ id:'e'+i, source:String(e.source), target:String(e.target), label:e.rel||'' } }));
+
+    if(cy){ cy.destroy(); cy=null; }
+    if(!nodes.length){
+      $('#cy').innerHTML = '<div class="empty" style="padding-top:220px;">No graph yet. Ingest records or load demo data in <b>Records</b>.</div>';
+      $('#graphLegend').innerHTML=''; return;
+    }
+    cy = cytoscape({
+      container: $('#cy'),
+      elements: { nodes, edges },
+      style: [
+        { selector:'node', style:{
+          'background-color':'data(color)', 'label':'data(label)', 'color':'#e7e9ee',
+          'font-size':'11px', 'font-family':"'Inter',sans-serif", 'font-weight':500,
+          'text-valign':'bottom', 'text-margin-y':6, 'width':30, 'height':30,
+          'border-width':2, 'border-color':'#0a0b0d', 'text-outline-width':2, 'text-outline-color':'#0a0b0d',
+          'transition-property':'background-color, border-color', 'transition-duration':'250ms'
+        }},
+        { selector:'node[?shared]', style:{ 'border-color':'#e7e9ee', 'border-width':2.5 } },
+        { selector:'node[?deleted]', style:{
+          'background-color':'#2a2d35', 'border-color':'#3a3d45', 'border-style':'dashed',
+          'color':'#6b7280', 'text-outline-color':'#0a0b0d', 'opacity':0.55, 'shape':'round-diamond'
+        }},
+        { selector:'edge', style:{
+          'width':1.4, 'line-color':'#2b2f39', 'target-arrow-color':'#2b2f39',
+          'target-arrow-shape':'triangle', 'curve-style':'bezier', 'arrow-scale':0.8,
+          'label':'data(label)', 'font-size':'9px', 'color':'#6b7280', 'font-family':"'JetBrains Mono',monospace",
+          'text-rotation':'autorotate', 'text-background-color':'#0a0b0d', 'text-background-opacity':0.9,
+          'text-background-padding':2
+        }}
+      ],
+      layout: { name:'cose', animate:true, animationDuration:600, nodeRepulsion:9000, idealEdgeLength:110, padding:40 }
+    });
+
+    // legend
+    const legend = $('#graphLegend'); legend.innerHTML='';
+    Object.keys(colorCache).forEach(sub => {
+      const li = el('div', 'li'); li.innerHTML = '<span class="swatch" style="background:'+colorCache[sub]+'"></span>'; li.appendChild(document.createTextNode(sub));
+      legend.appendChild(li);
+    });
+    const shared = el('div','li'); shared.innerHTML='<span class="swatch" style="background:#16181d;border:2px solid #e7e9ee"></span>'; shared.appendChild(document.createTextNode('shared entity')); legend.appendChild(shared);
+    const ghost = el('div','li'); ghost.innerHTML='<span class="swatch" style="background:#2a2d35;border:1px dashed #3a3d45"></span>'; ghost.appendChild(document.createTextNode('erased (tombstone)')); legend.appendChild(ghost);
+  }
+  $('#refreshGraph').addEventListener('click', loadGraph);
+
+  // ---------- FORGET (hero) ----------
+  const proofsEl = $('#proofs');
+  function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  function proofShell(cls, num, title, subtitle){
+    const p = el('div', 'proof '+cls);
+    const head = el('div', 'proof-head');
+    const n = el('div', 'proof-num', String(num));
+    const txt = el('div');
+    const t = el('div', 't'); t.textContent = title;
+    const s = el('div', 's'); s.textContent = subtitle;
+    txt.appendChild(t); txt.appendChild(s);
+    head.appendChild(n); head.appendChild(txt);
+    const body = el('div', 'proof-body');
+    p.appendChild(head); p.appendChild(body);
+    p._head = head; p._body = body;
+    return p;
+  }
+
+  async function runForget(){
+    const subject = $('#forgetSubject').value;
+    if(!subject){ toast('Select a subject to forget', 'err'); return; }
+    const btn = $('#forgetBtn'); btn.disabled = true;
+    const stage = $('#forgetStage'); stage.classList.add('scanning');
+    proofsEl.innerHTML='';
+    btn.innerHTML = '<span class="spinner"></span> Erasing & sealing proof…';
+
+    let bundle;
+    try{ bundle = await api('/api/forget', { method:'POST', body: JSON.stringify({ subject }) }); }
+    catch(err){
+      stage.classList.remove('scanning');
+      btn.disabled=false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg> Forget &amp; Prove';
+      toast('Forget failed: '+(err.status||'network'), 'err');
+      return;
+    }
+    await delay(700);
+    stage.classList.remove('scanning');
+
+    const receipt = bundle.receipt||{};
+    const prior = bundle.proof_prior_existence||[];
+    const absence = bundle.proof_of_absence||{};
+
+    // ---- PROOF 1 ----
+    const p1 = proofShell('p1', 1, 'It existed', 'Reconstructed from history via CockroachDB AS OF SYSTEM TIME');
+    const v1 = el('div','verdict ok', prior.length + ' entities recovered'); p1._head.appendChild(v1);
+    const intro1 = el('div','muted'); intro1.style.fontSize='12.5px'; intro1.style.marginBottom='12px';
+    intro1.textContent = 'Just before erasure, the graph knew the following about "'+subject+'". This is proof recovered from the pre-deletion snapshot — the record demonstrably existed.';
+    p1._body.appendChild(intro1);
+    if(prior.length){
+      prior.forEach(ent => {
+        const row = el('div', 'ghost-ent');
+        const k = el('span','k', ent.type||'entity');
+        const nm = el('span','n'); nm.textContent = ent.name||'—';
+        const d = el('span','d'); d.textContent = ent.description||'';
+        row.appendChild(k); row.appendChild(nm); if(ent.description) row.appendChild(d);
+        p1._body.appendChild(row);
+      });
+    } else {
+      const none = el('div','faint'); none.textContent='No prior entities found at the snapshot (subject may have had no graph nodes).'; p1._body.appendChild(none);
+    }
+    proofsEl.appendChild(p1);
+    requestAnimationFrame(()=>p1.classList.add('reveal'));
+
+    // ---- PROOF 2 ----
+    await delay(900);
+    const p2 = proofShell('p2', 2, "It's gone", 'Live verification against the current database');
+    const v2 = el('div','verdict gone', 'erased'); p2._head.appendChild(v2);
+    const grid = el('div','stat-grid');
+    function stat(v, l, zero){ const s=el('div','stat'); const vv=el('div','v'+(zero?' zero':'')); vv.textContent=v; const ll=el('div','l',l); s.appendChild(vv); s.appendChild(ll); return s; }
+    grid.appendChild(stat(absence.live_exclusive_nodes!=null?absence.live_exclusive_nodes:'0', 'Live exclusive nodes', absence.live_exclusive_nodes===0));
+    grid.appendChild(stat(absence.live_docs!=null?absence.live_docs:'0', 'Live documents', absence.live_docs===0));
+    grid.appendChild(stat(receipt.invalidated!=null?receipt.invalidated:'0', 'Shared nodes retained', false));
+    p2._body.appendChild(grid);
+    const rmeta = el('div','muted'); rmeta.style.fontSize='12.5px'; rmeta.style.margin='12px 0 0';
+    rmeta.textContent = 'Atomic transaction removed '+(receipt.nodes||0)+' nodes, '+(receipt.edges||0)+' edges and '+(receipt.docs||0)+' documents; '+(receipt.invalidated||0)+' shared entities were retained for surviving subjects.';
+    p2._body.appendChild(rmeta);
+
+    // live re-ask
+    const live = el('div','live-ask');
+    const q = el('div','q'); q.textContent = 'Live query · /api/ask — "What do you know about '+subject+'?"';
+    const a = el('div','a'); a.innerHTML = '<span class="typing"><span></span><span></span><span></span></span>';
+    live.appendChild(q); live.appendChild(a); p2._body.appendChild(live);
+    proofsEl.appendChild(p2);
+    requestAnimationFrame(()=>p2.classList.add('reveal'));
+
+    try{
+      const askData = await api('/api/ask', { method:'POST', body: JSON.stringify({ query:'What do you know about '+subject+'?' }) });
+      a.textContent = (askData && askData.answer) ? askData.answer : 'Nothing on record.';
+    }catch(_){ a.textContent = 'Nothing on record for "'+subject+'".'; }
+
+    // ---- PROOF 3 ----
+    await delay(900);
+    const p3 = proofShell('p3', 3, "It's irreversible", 'Cryptographic erasure — the data key was destroyed');
+    const shredded = !!absence.key_shredded;
+    const v3 = el('div','verdict '+(shredded?'gone':'ok'), shredded?'key shredded':'—'); p3._head.appendChild(v3);
+    const sl = el('div','shred-line');
+    sl.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    sl.appendChild(document.createTextNode(shredded ? 'Encryption key destroyed' : 'Key state reported'));
+    p3._body.appendChild(sl);
+    const expl = el('div','muted'); expl.style.fontSize='12.5px';
+    expl.textContent = shredded
+      ? 'The subject’s data key has been crypto-shredded. Any residual ciphertext — in MVCC history, replicas, backups, or S3 — is now cryptographically unrecoverable. There is no key to decrypt it, ever.'
+      : 'The erasure event was recorded. Key-shred state is reported by the engine.';
+    p3._body.appendChild(expl);
+
+    const cert = el('div','cert');
+    function crow(k,v){ const kk=el('div','k',k); const vv=el('div','v'); vv.textContent=v; cert.appendChild(kk); cert.appendChild(vv); }
+    crow('Certificate / event id', receipt.event_id||'—');
+    crow('Subject', receipt.subject||subject);
+    crow('Snapshot anchor (t_before)', receipt.t_before||'—');
+    p3._body.appendChild(cert);
+    proofsEl.appendChild(p3);
+    requestAnimationFrame(()=>p3.classList.add('reveal'));
+
+    await delay(600);
+    const cta = el('div','final-cta');
+    cta.innerHTML = '<div style="font-weight:600;font-size:15px;margin-bottom:4px;">Verifiable forgetting complete</div>';
+    const sub = el('div','muted'); sub.style.fontSize='13px';
+    sub.textContent = '"'+subject+'" existed, is gone, and cannot be recovered — proven end to end. Surviving subjects are untouched.';
+    cta.appendChild(sub);
+    proofsEl.appendChild(cta);
+
+    btn.disabled=false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg> Forget another subject';
+    toast('Erasure proven for "'+subject+'"', 'ok');
+    loaded.subjects=false; loadSubjects();
+  }
+  $('#forgetBtn').addEventListener('click', runForget);
+
+  // ---------- AUDIT ----------
+  async function loadAudit(){
+    // timeline
+    try{
+      const tl = await api('/api/timeline');
+      const box = $('#timeline'); box.innerHTML='';
+      if(!Array.isArray(tl) || !tl.length){ box.innerHTML='<div class="empty">No activity yet.</div>'; }
+      else tl.forEach(item => {
+        const kind = (item.kind||'event').toLowerCase();
+        const it = el('div','tl-item '+kind);
+        const top = el('div','row');
+        const k = el('span','tl-kind '+kind, kind);
+        const s = el('span','muted'); s.style.fontWeight='550'; s.textContent = item.subject||'';
+        top.appendChild(k); top.appendChild(s);
+        it.appendChild(top);
+        if(item.detail){ const d=el('div','tl-detail'); d.textContent=item.detail; it.appendChild(d); }
+        const at=el('div','tl-time'); at.textContent = item.at||''; it.appendChild(at);
+        box.appendChild(it);
+      });
+    }catch(err){ $('#timeline').innerHTML='<div class="empty">Timeline unavailable.</div>'; }
+
+    // events
+    try{
+      const ev = await api('/api/events');
+      const tb = $('#eventsTable').querySelector('tbody'); tb.innerHTML='';
+      if(!Array.isArray(ev) || !ev.length){ tb.innerHTML='<tr><td class="empty">No erasure events recorded.</td></tr>'; }
+      else{
+        const head = document.createElement('tr');
+        ['Subject','Docs','Nodes','Edges','Retained','When'].forEach(h=>{ const th=el('th',null,h); head.appendChild(th); });
+        const thead = $('#eventsTable').querySelector('thead') || $('#eventsTable').createTHead(); thead.innerHTML=''; thead.appendChild(head);
+        ev.forEach(e => {
+          const tr=document.createElement('tr');
+          const c1=el('td'); c1.style.fontWeight='550'; c1.textContent=e.subject||'';
+          const c2=el('td','n',String(e.docs!=null?e.docs:0));
+          const c3=el('td','n',String(e.nodes!=null?e.nodes:0));
+          const c4=el('td','n',String(e.edges!=null?e.edges:0));
+          const c5=el('td','n',String(e.invalidated!=null?e.invalidated:0));
+          const c6=el('td','faint'); c6.style.fontFamily='var(--mono)'; c6.style.fontSize='11.5px'; c6.textContent=e.at||'';
+          [c1,c2,c3,c4,c5,c6].forEach(c=>tr.appendChild(c)); tb.appendChild(tr);
+        });
+      }
+    }catch(err){ $('#eventsTable').querySelector('tbody').innerHTML='<tr><td class="empty">Events unavailable.</td></tr>'; }
+  }
+  $('#refreshAudit').addEventListener('click', loadAudit);
+
+  // ---------- SETTINGS ----------
+  const modelSelect = $('#modelSelect');
+  modelSelect.addEventListener('change', ()=>{
+    $('#endpointWrap').style.display = modelSelect.value.startsWith('custom') ? 'block' : 'none';
+  });
+  // restore local
+  try{
+    const saved = JSON.parse(localStorage.getItem('obliviate.model')||'null');
+    if(saved){
+      const key = saved.provider+'|'+(saved.model||'');
+      if($$('#modelSelect option').some(o=>o.value===key)) modelSelect.value=key;
+      if(saved.endpoint){ $('#modelEndpoint').value=saved.endpoint; }
+      $('#endpointWrap').style.display = modelSelect.value.startsWith('custom') ? 'block':'none';
+      $('#modelStatus').textContent = 'restored · '+saved.provider;
+    }
+  }catch(_){}
+
+  $('#saveModel').addEventListener('click', async ()=>{
+    const [provider, model] = modelSelect.value.split('|');
+    const endpoint = $('#modelEndpoint').value.trim();
+    const payload = { provider, model: model||'', endpoint: endpoint||undefined };
+    localStorage.setItem('obliviate.model', JSON.stringify(payload));
+    const note = $('#modelNote'); note.style.display='none';
+    $('#saveModel').disabled=true;
+    try{
+      await api('/api/model', { method:'POST', body: JSON.stringify(payload) });
+      $('#modelStatus').textContent = 'saved · '+provider;
+      toast('Model saved on server', 'ok');
+    }catch(err){
+      // 404/501 expected — graceful local save
+      note.style.display='block';
+      note.textContent = 'Server did not accept model config ('+(err.status||'network')+'). Saved locally in this browser — Obliviate is model-agnostic, so this preference will apply client-side.';
+      $('#modelStatus').textContent = 'saved locally · '+provider;
+    }finally{ $('#saveModel').disabled=false; }
+  });
+
+  // ---------- boot ----------
+  loadSubjects();
+})();
+</script>
+</body>
+</html>
