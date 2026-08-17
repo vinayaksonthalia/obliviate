@@ -944,8 +944,8 @@
      const opts={
        nodes:{borderWidth:2,scaling:{min:7,max:26,label:{enabled:true,min:12,max:22}}},
        edges:{smooth:{type:'continuous',roundness:.4},arrows:{to:{enabled:true,scaleFactor:.4}},font:{size:11,align:'middle'},selectionWidth:0,hoverWidth:0},
-       physics:{solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-70,centralGravity:.012,springLength:130,springConstant:.07,damping:.45,avoidOverlap:.55},stabilization:{iterations:300,fit:true},minVelocity:.75},
-       interaction:{hover:true,hoverConnectedEdges:false,selectConnectedEdges:false,zoomView:true,dragView:true}};
+       physics:{solver:'forceAtlas2Based',forceAtlas2Based:{gravitationalConstant:-68,centralGravity:.015,springLength:130,springConstant:.06,damping:.38,avoidOverlap:.6},stabilization:{iterations:220,fit:true},minVelocity:.08},
+       interaction:{hover:true,hoverConnectedEdges:false,selectConnectedEdges:false,zoomView:true,dragView:true,dragNodes:true}};
      gnet=new vis.Network($('graphbox'),{nodes:nodesDS,edges:edgesDS},opts);window.gnet=gnet;
      const box=$('graphbox');
      gnet.on('hoverNode',pr=>{if(gpinned==null)gFocus(pr.node);box.style.cursor='pointer';});
@@ -954,6 +954,19 @@
      gnet.on('click',pr=>{if(pr.nodes&&pr.nodes.length){gpinned=pr.nodes[0];gpdepth=1;gFocusHops(gpinned,1);gMeta(gpinned);gPanelShow(gpinned);if(gk)gk.classList.add('hidden');gnet.focus(gpinned,{scale:gnet.getScale(),locked:false,animation:{duration:500,easingFunction:'easeInOutCubic'}});}else{gpinned=null;gpdepth=1;gReset();gMeta(null);gPanelHide();gnet.fit({animation:{duration:600,easingFunction:'easeInOutQuad'}});}});
      gnet.on('doubleClick',pr=>{if(pr.nodes&&pr.nodes.length){const n=gdata.byId[pr.nodes[0]];if(n)askAbout(n.label);}});
      gnet.once('stabilizationIterationsDone',()=>gnet.fit({animation:{duration:600,easingFunction:'easeInOutQuad'}}));
+     // gentle continuous "breathing" so the graph feels alive (Obsidian-style): nudge a few random
+     // nodes periodically and let the force sim pull them back. Pauses while a node is pinned/focused,
+     // and respects reduced-motion.
+     if(window._gdrift)clearInterval(window._gdrift);
+     if(!matchMedia('(prefers-reduced-motion:reduce)').matches){
+       window._gdrift=setInterval(function(){
+         if(!window.gnet||gpinned!=null)return;
+         var ns=window.gnet.body&&window.gnet.body.nodes;if(!ns)return;
+         var ids=Object.keys(ns);if(ids.length<2)return;
+         for(var i=0;i<Math.min(5,ids.length);i++){var n=ns[ids[Math.floor(Math.random()*ids.length)]];if(n){n.x+=(Math.random()-.5)*13;n.y+=(Math.random()-.5)*13;}}
+         window.gnet.startSimulation();
+       },1800);
+     }
      window.gFocus=gFocus;window.gReset=gReset;window.gFocusHops=gFocusHops;
      gMeta(null);
    }catch(e){$('gmeta').textContent='failed to load graph';}
