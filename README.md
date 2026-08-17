@@ -63,13 +63,11 @@ One click erases a subject in a single ACID transaction, then proves it three wa
 
 ![Forget &amp; Prove — the live 3-part proof of erasure](docs/media/forget-prove.gif)
 
-The signed, object-locked **Certificate of Erasure** it produces:
+It produces a signed, object-locked **Certificate of Erasure** — and **anyone can independently re-check it** at **`/verify`**: the page re-derives the SHA-256 content hash and checks the ECDSA (P-256) signature (public key shown, so it verifies offline). A tampered field breaks the hash; a forged certificate fails the signature.
 
-![Certificate of Erasure](docs/screenshots/07-certificate.png)
-
-**Verify it yourself** — anyone can re-check a certificate at **`/verify`**: it re-derives the SHA-256 content hash and checks the ECDSA (P-256) signature, and shows the public key so the signature can be verified offline. A tampered field breaks the hash; a forged certificate fails the signature.
-
-![Certificate verifier](docs/screenshots/09-verify.png)
+| Certificate of Erasure | Independent verifier (`/verify`) |
+|:---:|:---:|
+| <img src="docs/screenshots/07-certificate.png" width="380" alt="Certificate of Erasure"> | <img src="docs/screenshots/09-verify.png" width="380" alt="Certificate verifier"> |
 
 The knowledge graph (47 entities · 83 relationships, live physics) and the in-app docs:
 
