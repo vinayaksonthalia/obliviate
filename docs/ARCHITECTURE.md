@@ -8,9 +8,8 @@ Obliviate collapses three systems — a graph database, a vector store, and an a
 ```mermaid
 flowchart TB
     U["User / AI agent"] -->|HTTPS| API["FastAPI application"]
-    API -->|"ordinary memory I/O"| MCP["CockroachDB Managed MCP Server"]
+    MCP["Obliviate MCP server<br/>(FastMCP)"] -->|"remember · recall · forget"| CRDB
     API -->|"vectors · AS OF SYSTEM TIME · cascade · recursive CTEs"| CRDB
-    MCP --> CRDB
     subgraph CRDB["CockroachDB — one transactional store"]
         D["documents<br/>(encrypted)"]
         N["nodes<br/>(+ C-SPANN VECTOR index)"]
@@ -20,9 +19,8 @@ flowchart TB
         T["timeline"]
     end
     API -->|"embeddings (384-d)"| FE["fastembed (local)"]
-    API -->|"generation (BYO-model)"| LLM["Ollama / Cerebras / Gemini / …"]
-    API -->|"invoke"| L["AWS Lambda<br/>(sign certificate)"]
-    L -->|"PUT (Object Lock / WORM)"| S3["Amazon S3<br/>(erasure certificates)"]
+    API -->|"generation (BYO-model)"| LLM["Ollama / Cerebras / hosted"]
+    API -->|"sign (ECDSA P-256) + PUT (Object Lock / WORM)"| S3["Amazon S3<br/>(erasure certificates)"]
 ```
 
 ## The forget flow — one ACID transaction + three proofs

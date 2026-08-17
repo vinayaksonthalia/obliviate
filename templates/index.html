@@ -89,6 +89,8 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5 11 7l3.5 1.5L11 10l-1.5 3.5L8 10 4.5 8.5 8 7z"/><path d="m18 13 .7 1.9 1.9.7-1.9.7L18 19l-.7-1.9-1.9-.7 1.9-.7z"/></svg><span class="hidden md:inline">Curation</span></button>
       <button data-view="timeline" title="Timeline" class="nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="hidden md:inline">Timeline</span></button>
+      <a href="/verify" title="Verify a certificate" class="nav flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg><span class="hidden md:inline">Verify</span></a>
     </nav>
     <div id="chatsPane" class="mt-5 hidden min-h-0 flex-1 flex-col md:flex">
       <div class="mb-1.5 flex items-center justify-between px-2.5">
@@ -401,7 +403,7 @@
    if(v==='curation')loadCuration();
    if(v==='timeline')loadTimeline();
  }
- document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>show(b.dataset.view));
+ document.querySelectorAll('button.nav').forEach(b=>b.onclick=()=>show(b.dataset.view));
  show('triage');
 
  // First-run guided-demo card (Triage): shows once on the default workspace until dismissed.

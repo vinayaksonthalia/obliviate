@@ -4,7 +4,7 @@ Goal: storytelling first, proof on screen, every requirement named. Target ~2:45
 runs long. Everything shown is live and real (judges penalize mocked functionality).
 
 Stack to name on screen in the first 15s + in the README's first screen:
-**CockroachDB · Distributed Vector Index · AS OF SYSTEM TIME · Row-level TTL · AWS Lambda + S3.**
+**CockroachDB · Distributed Vector Index · AS OF SYSTEM TIME · Row-level TTL · Amazon S3 (Object Lock) + EC2.**
 
 ---
 
