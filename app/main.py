@@ -189,7 +189,7 @@ def workspaces_list():
 
 
 @app.post("/api/workspaces")
-def workspaces_create(r: WsReq):
+def workspaces_create(r: WsReq, _: None = Depends(require_auth)):
     wid = "ws-" + uuid.uuid4().hex[:8]
     name = (r.name or "Untitled").strip()[:80]
     with store.connect() as conn, conn.cursor() as c:
