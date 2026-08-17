@@ -1,73 +1,60 @@
-# Obliviate — 3-minute demo video script
+# Obliviate — demo video storyboard (~2:50, 1600×900, 30fps)
 
-Goal: storytelling first, proof on screen, every requirement named. Target ~2:45 so it never
-runs long. Everything shown is live and real (judges penalize mocked functionality).
+Built on the proven Lethe pipeline. **Voice first** — you record the VO reading §B; then every
+visual is timed to your words (faster-whisper anchors). The video must read **with sound off**, so
+every beat carries a burned-in caption. Hero = forget → three proofs → certificate (longest slot).
 
-Stack to name on screen in the first 15s + in the README's first screen:
-**CockroachDB · Distributed Vector Index · AS OF SYSTEM TIME · Row-level TTL · Amazon S3 (Object Lock) + EC2.**
+Capture target: the **live** app `https://43-204-114-100.nip.io/` with the judge token pre-saved in
+Settings → Security (so writes work). Two beats can't be automated (auth) — you grab them: the **S3
+object-lock console** and the **MCP `select_query`** (both marked 🎙 below).
 
----
+## A. Storyboard
 
-## Scene 1 — The hook (0:00–0:20)
-**On screen:** Obliviate landing page hero; then cut to the console.
-**Voiceover:**
-> "Every agentic-memory project answers the same question — how do agents *remember* more?
-> Obliviate answers the one that regulated, production memory actually demands: when memory is
-> wrong, poisoned, or legally required to disappear — can you delete it *everywhere*, atomically,
-> and *prove* it's gone? On CockroachDB, we can."
+| # | Time | On screen (capture) | Caption (burned in) | VO line |
+|---|------|---------------------|---------------------|---------|
+| 1 | 0:00–0:10 | Landing hero, slow scroll | **Agents are built to remember more.** | "Every agentic-memory project this cycle answers one question — how do agents *remember* more?" |
+| 2 | 0:10–0:18 | Landing continues | **Almost none ask: how do they forget?** | "Almost none ask the harder one — how do they *forget*? Completely, and provably." |
+| 3 | 0:18–0:26 | Name card (3D logo + wordmark) | **Obliviate — verifiable forgetting · CockroachDB-native** | "This is Obliviate. Verifiable forgetting for AI-agent memory, built on CockroachDB." |
+| 4 | 0:26–0:36 | Knowledge graph (live physics) | **Graph + vectors + audit — one store.** | "A knowledge graph, semantic recall, and a tamper-evident audit trail — in one transactional store." |
+| 5 | 0:36–0:48 | Chat: ask "what should I check for payments-service?" → grounded answer + source chips | **Grounded answers, with sources.** | "It answers strictly from what it knows, and cites its sources." |
+| 6 | 0:48–0:56 | Chat: ask about someone not on record → "I don't have that on record" | **And it admits what it doesn't know.** | "When a fact isn't on record, it says so — and that honesty is what makes forgetting provable." |
+| 7 | 0:56–1:18 | **HERO ①** Subjects → Forget & Prove → the erase animation | **One click. One ACID transaction.** | "Now the hero. One click erases a subject in a single ACID transaction — documents, graph nodes, edges, and vectors." |
+| 8 | 1:18–1:40 | **HERO ②** the 3-part proof panel (zoom each in post) | **① existed — AS OF SYSTEM TIME · ② gone — re-search: 0 · ③ irreversible — crypto-shred** | "Then it proves it three ways. It existed — reconstructed with AS OF SYSTEM TIME. It's gone — a live vector and graph re-search returns nothing. And it's irreversible — the encryption key is crypto-shredded." |
+| 9 | 1:40–1:52 | Certificate page → 🎙 **S3 object-lock console** (Object Lock: COMPLIANCE) | **Signed certificate → object-locked S3 (WORM).** | "Every erasure writes a signed certificate to object-locked S3 — write-once, tamper-proof." |
+| 10 | 1:52–2:06 | `/verify`: paste cert → ✅ valid → edit one field → ❌ both fail | **Anyone can verify it. Tamper → it fails.** | "Anyone can re-check that certificate — re-derive the hash, verify the signature. Change a single field, and it fails." |
+| 11 | 2:06–2:22 | 🎙 **MCP shot**: `cockroachdb-cloud` → `select count(*) … = 0` after the forget | **Verified through CockroachDB's own MCP server.** | "You don't even have to trust our app. Through CockroachDB's managed MCP server, an auditor queries the cluster directly — and confirms it's gone." |
+| 12 | 2:22–2:32 | Graph: erased subject's nodes greyed; "1 shared kept" | **Shared memory is kept, not corrupted.** | "Erase one subject, and entities shared with a survivor are kept — never corrupted." |
+| 13 | 2:32–2:42 | Stack / badges card | **C-SPANN · AS OF SYSTEM TIME · Serializable · Recursive CTE · Row-level TTL · Managed MCP · AWS S3 + EC2** | "Graph, vectors, time-travel, and proof — one CockroachDB store, live on AWS." |
+| 14 | 2:42–2:52 | Landing + URL | **Try it live · 43-204-114-100.nip.io** | "Memory that forgets — completely, and provably. It's live. Try it yourself." |
 
-## Scene 2 — The problem (0:20–0:40)
-**On screen:** a customer-support agent (or SRE agent) with per-customer memory in the graph view.
-**Voiceover:**
-> "Agents accumulate memory forever. A poisoned fact corrupts every future answer. A departed
-> customer's data lingers past its retention window. And in most systems, 'delete' leaves
-> recoverable vectors on disk, orphaned graph edges, and no proof anything happened."
+## B. Read-ready VO (record one take; pause ~1s at each ⏸; ~140 wpm)
 
-## Scene 3 — Build the memory (0:40–1:00)
-**On screen:** load demo data / ingest a couple of records; ask a question; get a grounded answer.
-**Voiceover:**
-> "Obliviate stores an agent's memory as a knowledge graph *and* vectors *and* an audit trail —
-> in one CockroachDB store. Watch it answer, grounded strictly in what it knows — and when it
-> doesn't know something, it says so. That honesty is what makes forgetting provable."
+1. Every agentic-memory project this cycle answers one question — how do agents *remember* more? ⏸
+2. Almost none ask the harder one — how do they *forget*? Completely, and provably. ⏸
+3. This is Obliviate. Verifiable forgetting for AI-agent memory, built on CockroachDB. ⏸
+4. A knowledge graph, semantic recall, and a tamper-evident audit trail — in one transactional store. ⏸
+5. It answers strictly from what it knows, and cites its sources. ⏸
+6. When a fact isn't on record, it says so — and that honesty is what makes forgetting provable. ⏸
+7. Now the hero. One click erases a subject in a single ACID transaction — documents, graph nodes, edges, and vectors. ⏸
+8. Then it proves it three ways. It existed — reconstructed with AS OF SYSTEM TIME. It's gone — a live vector and graph re-search returns nothing. And it's irreversible — the encryption key is crypto-shredded. ⏸
+9. Every erasure writes a signed certificate to object-locked S3 — write-once, tamper-proof. ⏸
+10. Anyone can re-check that certificate — re-derive the hash, verify the signature. Change a single field, and it fails. ⏸
+11. You don't even have to trust our app. Through CockroachDB's managed MCP server, an auditor queries the cluster directly — and confirms it's gone. ⏸
+12. Erase one subject, and entities shared with a survivor are kept — never corrupted. ⏸
+13. Graph, vectors, time-travel, and proof — one CockroachDB store, live on AWS. ⏸
+14. Memory that forgets — completely, and provably. It's live. Try it yourself.
 
-## Scene 4 — Forget & Prove — THE HERO (1:00–2:10)
-**On screen:** click **Forget & Prove** on a subject. The 3 proof cards reveal in sequence.
-**Voiceover:**
-> "Now erase that customer. One click — and one *atomic* CockroachDB transaction removes their
-> documents, graph nodes, edges, and vectors together. Then it proves it, three ways.
->
-> **One — it existed.** Using CockroachDB's `AS OF SYSTEM TIME`, we reconstruct exactly what the
-> agent knew a moment before erasure. The database's own history *is* the receipt.
->
-> **Two — it's gone.** We re-ask the agent about that customer, live — and it now has nothing on
-> record. The vector and graph search return nothing. But entities *shared* with other customers
-> are kept — erasing one never corrupts another's memory.
->
-> **Three — it's irreversible.** Each customer's data is sealed under its own encryption key. We
-> destroy that key — so even residual bytes in history or backups are cryptographically
-> unrecoverable — and issue a signed, object-locked certificate to S3."
-**On screen:** open the Certificate of Erasure page (the signed, print-ready cert).
+## C. What I capture (⚙️) vs. what you grab (🎙)
+- ⚙️ **Me, automated (Playwright vs. live site, token pre-saved):** beats 1–8, 10, 12, 13, 14.
+- 🎙 **You (needs your login — 2 short clips):**
+  - Beat 9: your AWS S3 console showing the `obliviate-certs-vinayak` bucket object with **Object Lock: COMPLIANCE**.
+  - Beat 11: an interactive Claude session using the `cockroachdb-cloud` MCP → run `select count(*) from nodes where 'X' = ANY(subjects)` and show it return **0** after a forget.
+  - (Both are ~10-second screen recordings; ~2 min of your time.)
 
-## Scene 5 — The proof it's real (2:10–2:30)
-**On screen:** the eval numbers.
-**Voiceover:**
-> "This isn't a claim. Naive deletion leaves data one-hundred percent recoverable from a leaked
-> copy. Obliviate's crypto-shred: zero. And it's grounded in 2026 research on verifiable deletion."
-
-## Scene 6 — Close (2:30–2:45)
-**On screen:** architecture one-liner + the stack badges + logos.
-**Voiceover:**
-> "Graph, vectors, time-travel proof, and retention — one CockroachDB store, deployed on AWS.
-> Obliviate: the first database-native right to be forgotten. Your audit log can lie. MVCC can't."
-
----
-
-## Shot list / checklist
-- [ ] Landing hero (light or dark — pick one and stay consistent)
-- [ ] Console: ingest / load demo → grounded answer → the "not on record" honesty beat
-- [ ] Forget & Prove: the 3 proof cards animating in
-- [ ] Certificate of Erasure page (signed)
-- [ ] Graph view showing shared node surviving + forgotten node as a ghost
-- [ ] Eval numbers (naive 0% → Obliviate 100%)
-- [ ] Stack badges named on screen within the first 15s
-- [ ] < 3:00 total, public on YouTube/Vimeo, uploaded early
+## D. Pipeline (from the runbook)
+1. ⚙️ This storyboard.
+2. 🎙 You record §B in one take → I `loudnorm` it.
+3. ⚙️ faster-whisper word timestamps → anchor each beat.
+4. ⚙️ Playwright one-shot capture per act (1600×900, dark, reset state between takes).
+5. ⚙️ PNG/HTML caption overlays (no ffmpeg drawtext).
+6. ⚙️ Rough cut (ffmpeg concat) → check flow → final comp → mux voice → `final.mp4` (1600×900, 30fps, H.264 + AAC 192k, hard cuts).
