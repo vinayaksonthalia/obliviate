@@ -93,6 +93,10 @@ It produces a signed, object-locked **Certificate of Erasure** — and **anyone 
 
 ![Independent audit — direct SQL, zero rows for the forgotten subject](docs/screenshots/11-independent-audit.png)
 
+*The same check through **CockroachDB Cloud's Managed MCP server** — an auditor queries the cluster directly (not our app) and gets **0 rows** for the forgotten subject:*
+
+![Managed MCP audit — 0 rows for the forgotten subject](docs/screenshots/12-mcp-audit.png)
+
 The knowledge graph (47 entities · 83 relationships, live physics) and the in-app docs:
 
 | Knowledge graph | Docs (`/learn`) |
