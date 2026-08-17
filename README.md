@@ -83,6 +83,16 @@ It produces a signed, object-locked **Certificate of Erasure** — and **anyone 
 |:---:|:---:|
 | <img src="docs/screenshots/07-certificate.png" width="380" alt="Certificate of Erasure"> | <img src="docs/screenshots/09-verify.png" width="380" alt="Certificate verifier"> |
 
+**Don't take our word for it — here's the evidence, outside the app:**
+
+*The certificate object in the AWS S3 console: **Object Lock retention — Compliance mode** (WORM: not even the account root can delete or overwrite it before expiry):*
+
+![S3 Object Lock — Compliance mode on an erasure certificate](docs/screenshots/10-s3-object-lock.png)
+
+*And an independent audit — direct SQL on the CockroachDB cluster (no application in the loop) for a previously forgotten subject: **0 nodes · 0 documents · data key destroyed**:*
+
+![Independent audit — direct SQL, zero rows for the forgotten subject](docs/screenshots/11-independent-audit.png)
+
 The knowledge graph (47 entities · 83 relationships, live physics) and the in-app docs:
 
 | Knowledge graph | Docs (`/learn`) |
