@@ -4,8 +4,6 @@
 
 # Obliviate
 
-<hr width="72%">
-
 **Agent memory that forgets on command — and proves it's gone.**
 
 Delete it *everywhere* · in one atomic transaction · with a signed receipt anyone can check
