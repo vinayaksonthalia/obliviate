@@ -6,6 +6,9 @@
 
 Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
 
+### ▶ [Try the live demo](http://43.204.114.100:8080/app) &nbsp;·&nbsp; running on AWS EC2
+
+[![Live demo](https://img.shields.io/badge/▶_Live_demo-online-22c55e?style=flat-square)](http://43.204.114.100:8080/app)
 ![License MIT](https://img.shields.io/badge/License-MIT-8b5cf6?style=flat-square)
 ![CockroachDB Basic](https://img.shields.io/badge/CockroachDB-Basic-6933FF?style=flat-square&logo=cockroachlabs&logoColor=white)
 ![Cloud MCP](https://img.shields.io/badge/Cloud_MCP-independently_verifiable-22c55e?style=flat-square)
