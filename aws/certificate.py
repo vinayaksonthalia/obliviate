@@ -63,7 +63,10 @@ def issue(receipt: dict, proof_prior: list, proof_absence: dict, issued_at: str)
     with this subject's provenance removed. We do NOT claim the derived graph text is crypto-shredded.
     """
     workspace = receipt.get("workspace", "default")
-    subject_sha = hashlib.sha256(f"{workspace}:{receipt['subject']}".encode()).hexdigest()
+    # Salt the subject hash with the random per-event salt (kept in erasure_events, NOT in this
+    # certificate) so the portable cert cannot be brute-forced back to the subject.
+    salt = bytes.fromhex(receipt["salt"]) if receipt.get("salt") else b""
+    subject_sha = hashlib.sha256(salt + f"{workspace}:{receipt['subject']}".encode()).hexdigest()
     shredded = bool(proof_absence.get("key_shredded"))
     cert = {
         "obliviate_erasure_certificate": "v1",

@@ -24,6 +24,7 @@ CREATE INDEX IF NOT EXISTS documents_ws_subject_idx ON documents (workspace, sub
 -- fresh installs and existing clusters converge here.
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS ttl_expire_at TIMESTAMPTZ;
 ALTER TABLE documents SET (ttl_expiration_expression = 'ttl_expire_at', ttl_job_cron = '@hourly');
+ALTER TABLE erasure_events ADD COLUMN IF NOT EXISTS subject_salt BYTES;
 
 -- Nodes: knowledge-graph entities extracted from documents (LLM-extracted, coreference-merged).
 -- UNIQUE(workspace, name) gives deterministic dedup via INSERT .. ON CONFLICT, per workspace.
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS erasure_events (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace         STRING NOT NULL DEFAULT 'default',
     subject           STRING,
+    subject_salt      BYTES,                       -- random per-event salt for the cert's subject hash (never leaves in the portable cert)
     t_before          DECIMAL,                     -- cluster_logical_timestamp() pre-delete (AOST anchor)
     docs_removed      INT DEFAULT 0,
     nodes_removed     INT DEFAULT 0,

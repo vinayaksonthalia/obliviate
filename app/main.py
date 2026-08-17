@@ -445,7 +445,7 @@ _CERT_TEMPLATE = """<!doctype html>
     <div class="eyebrow">Right to be forgotten &middot; Data erasure record</div>
     <h1 class="serif">Certificate of Erasure</h1>
     <div class="subject">Issued for the permanent removal of <span class="mono">{{SUBJECT}}</span> from Obliviate&rsquo;s memory.</div>
-    <div class="subject dim" style="font-size:11.5px;margin-top:6px;max-width:34rem;margin-left:auto;margin-right:auto">This operator-facing record names the subject for your internal audit trail. The portable certificate and its object-locked S3 copy carry only a salted hash — no personal data leaves in the shareable proof.</div>
+    <div class="subject dim" style="font-size:11.5px;margin-top:6px;max-width:34rem;margin-left:auto;margin-right:auto">This operator-facing record names the subject for your internal audit trail. The portable certificate and its object-locked S3 copy carry only a one-way hash under a <strong>random per-event salt</strong> — the salt is kept operator-side and never leaves in the portable proof, so the shareable certificate cannot be reversed to the subject.</div>
   </div>
 
   <div class="rule"></div>
@@ -516,7 +516,8 @@ def _render_certificate(row, event_id: str) -> str:
     view-time proof-of-absence — are new here.
     """
     import hashlib
-    workspace, subject, t_before, docs, nodes, edges, shared, created_at = row
+    workspace, subject, t_before, docs, nodes, edges, shared, created_at, subject_salt = row
+    salt = bytes(subject_salt) if subject_salt else b""
 
     # Date formatting (best-effort; falls back to the raw DB string).
     date_human = date_short = created_at or ""
@@ -527,7 +528,7 @@ def _render_certificate(row, event_id: str) -> str:
     except Exception:
         pass
 
-    subj_hash = hashlib.sha256(f"{workspace}:{subject or ''}".encode()).hexdigest()
+    subj_hash = hashlib.sha256(salt + f"{workspace}:{subject or ''}".encode()).hexdigest()
 
     # A live, view-time re-check against the database — not a stored claim.
     try:
@@ -611,7 +612,7 @@ def certificate_page(event_id: str):
     with store.connect() as conn, conn.cursor() as c:
         c.execute(
             "SELECT workspace, subject, t_before, docs_removed, nodes_removed, edges_removed, "
-            "nodes_invalidated, created_at::string FROM erasure_events WHERE id = %s",
+            "nodes_invalidated, created_at::string, subject_salt FROM erasure_events WHERE id = %s",
             (event_id,),
         )
         row = c.fetchone()

@@ -22,6 +22,7 @@ memory is never left in a half-erased state):
 """
 from __future__ import annotations
 
+import os
 import re
 
 from db import store
@@ -86,15 +87,20 @@ def forget(subject: str, workspace: str = "default") -> dict:
                 # crypto-shred: destroy the subject's data key
                 store.crypto_shred(conn, workspace, subject)
 
-                # measured, tamper-evident erasure event
+                # measured, tamper-evident erasure event. A random per-event salt makes the
+                # certificate's subject hash non-reversible: the salt is stored here (operator side)
+                # but is NEVER written into the portable/S3 certificate, so a leaked cert cannot be
+                # brute-forced back to the subject — even for low-entropy names.
+                salt = os.urandom(16)
                 cur.execute(
                     """
                     INSERT INTO erasure_events
-                      (workspace, subject, t_before, docs_removed, nodes_removed, edges_removed, nodes_invalidated)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                      (workspace, subject, subject_salt, t_before, docs_removed, nodes_removed,
+                       edges_removed, nodes_invalidated)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (workspace, subject, t_before, receipt["docs"], receipt["nodes"],
+                    (workspace, subject, salt, t_before, receipt["docs"], receipt["nodes"],
                      receipt["edges"], receipt["invalidated"]),
                 )
                 event_id = cur.fetchone()[0]
@@ -108,7 +114,7 @@ def forget(subject: str, workspace: str = "default") -> dict:
                 )
 
     return {"subject": subject, "workspace": workspace, "t_before": t_before,
-            "event_id": str(event_id), **receipt}
+            "event_id": str(event_id), "salt": salt.hex(), **receipt}
 
 
 def prior_state(subject: str, t_before: str, workspace: str = "default") -> list[dict]:
