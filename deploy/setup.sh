@@ -2,24 +2,27 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Obliviate — one-shot EC2 provisioner (Ubuntu 22.04 / 24.04, 'ubuntu' user).
 #
-# It clones the repo, installs deps via uv, wires the secrets you copied up
-# (~/.env and ~/root.crt), initializes the DB, and runs the app as a systemd
-# service on :8080 that auto-restarts and survives reboots — so it stays live
-# for the whole judging month.
+# No repo URL is hardcoded: this script operates on the checkout it lives in.
+# You clone the repo yourself (with whatever URL it has — personal, org, or a
+# fork), then run this from inside it. It installs deps via uv, wires the
+# secrets you copied up (~/.env and ~/root.crt), initializes the DB, and runs
+# the app as a systemd service on :8080 that auto-restarts and survives reboots.
 #
-# Prereqs (do these BEFORE running — see docs/DEPLOY.md):
-#   1) repo is public (or clone with a token)
-#   2) from your laptop:  scp -i key.pem .env ubuntu@<DNS>:~/.env
-#                         scp -i key.pem ~/.postgresql/root.crt ubuntu@<DNS>:~/root.crt
-#
-# Run on the server:
-#   curl -fsSL https://raw.githubusercontent.com/vinayaksonthalia/obliviate/main/deploy/setup.sh | bash
+# Usage (see docs/DEPLOY.md):
+#   scp -i key.pem .env ubuntu@<DNS>:~/.env
+#   scp -i key.pem ~/.postgresql/root.crt ubuntu@<DNS>:~/root.crt
+#   ssh -i key.pem ubuntu@<DNS>
+#   git clone <YOUR-REPO-URL> ~/obliviate      # your own clone URL
+#   cd ~/obliviate && bash deploy/setup.sh
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-REPO="${OBLIVIATE_REPO:-https://github.com/vinayaksonthalia/obliviate.git}"
-APP_DIR="$HOME/obliviate"
+# Repo root = the parent of this script's directory (deploy/). Self-locating,
+# so nothing here depends on the repo's owner/name/URL.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PORT="${PORT:-8080}"
+cd "$APP_DIR"
 
 echo "==> [1/8] system packages"
 sudo apt-get update -y
@@ -40,13 +43,10 @@ if [ ! -f /swapfile ]; then
   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
 fi
 
-echo "==> [4/8] clone / update repo"
+echo "==> [4/8] refresh checkout (if it's a git clone)"
 if [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" pull --ff-only
-else
-  git clone "$REPO" "$APP_DIR"
+  git -C "$APP_DIR" pull --ff-only || echo "   (skipping pull — local changes or detached; continuing)"
 fi
-cd "$APP_DIR"
 
 echo "==> [5/8] wire secrets copied to \$HOME"
 if [ -f "$HOME/.env" ] && [ ! -f "$APP_DIR/.env" ]; then

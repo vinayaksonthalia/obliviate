@@ -22,7 +22,7 @@ AWS Console → EC2 → **Launch instance**:
 
 ## 2. Copy your secrets up (from your laptop)
 ```bash
-cd "/Users/vinayak/Documents/devpost/coackroach db hacakthon/obliviate"
+cd /path/to/your/obliviate          # your local clone (where .env already works)
 chmod 400 ~/Downloads/obliviate-key.pem
 DNS=ec2-XX-XX-XX-XX.ap-south-1.compute.amazonaws.com     # your Public IPv4 DNS
 scp -i ~/Downloads/obliviate-key.pem .env                ubuntu@$DNS:~/.env
@@ -32,10 +32,12 @@ scp -i ~/Downloads/obliviate-key.pem ~/.postgresql/root.crt ubuntu@$DNS:~/root.c
 ## 3. Provision (on the server)
 ```bash
 ssh -i ~/Downloads/obliviate-key.pem ubuntu@$DNS
-curl -fsSL https://raw.githubusercontent.com/vinayaksonthalia/obliviate/main/deploy/setup.sh | bash
+git clone <YOUR-REPO-URL> ~/obliviate      # your own clone URL (personal, org, or fork)
+cd ~/obliviate && bash deploy/setup.sh
 ```
-The script clones the repo, installs deps with `uv`, adds swap, wires `~/.env` + `~/root.crt`,
-initializes the DB, and starts the `obliviate` systemd service on port 8080. It prints the live URL.
+`setup.sh` is self-locating — no repo URL is baked in, so it runs against whatever checkout you cloned.
+It installs deps with `uv`, adds swap, wires `~/.env` + `~/root.crt`, initializes the DB, and starts the
+`obliviate` systemd service on port 8080 (auto-restart + boot-persistent). It prints the live URL.
 
 ## 4. Verify
 Open **`http://<PUBLIC_IP>:8080/app`** — you should see the console with the seeded graph.
