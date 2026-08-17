@@ -1,23 +1,34 @@
 <div align="center">
 
-![Obliviate — verifiable forgetting for AI-agent memory, CockroachDB-native](docs/media/banner.gif)
+<img src="docs/media/logo.png" width="140" alt="Obliviate logo">
 
-**When an agent's memory is wrong, poisoned, or legally required to disappear — can you delete it *everywhere*, atomically, and *prove* it's gone?**
+# Obliviate
 
-Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
+<hr width="72%">
 
-### ▶ [Try the live demo](https://43-204-114-100.nip.io/) &nbsp;·&nbsp; running on AWS EC2
+**Agent memory that forgets on command — and proves it's gone.**
 
-Browsing, recall, the knowledge graph, and `/verify` are open to everyone. Writes are **token-gated** (an erasure product should never let anonymous visitors delete data) — to run **Forget & Prove** yourself, paste the demo token **`obliviate-judge-75a0f127`** in **Settings → Security**.
+Delete it *everywhere* · in one atomic transaction · with a signed receipt anyone can check
 
-[![Live demo](https://img.shields.io/badge/▶_Live_demo-online-22c55e?style=flat-square)](https://43-204-114-100.nip.io/)
-![License MIT](https://img.shields.io/badge/License-MIT-8b5cf6?style=flat-square)
+[![▶ Try the live demo](https://img.shields.io/badge/▶_TRY_THE_LIVE_DEMO-running_on_AWS_EC2-6d28d9?style=for-the-badge&labelColor=1a1533)](https://43-204-114-100.nip.io/)
+
+[![Live demo](https://img.shields.io/badge/Live_demo-online-22c55e?style=flat-square)](https://43-204-114-100.nip.io/)
 ![CockroachDB Basic](https://img.shields.io/badge/CockroachDB-Basic-6933FF?style=flat-square&logo=cockroachlabs&logoColor=white)
 ![Cloud MCP](https://img.shields.io/badge/Cloud_MCP-independently_verifiable-22c55e?style=flat-square)
 ![AWS S3 WORM](https://img.shields.io/badge/AWS_S3-Object_Lock_·_WORM-FF9900?style=flat-square&logo=amazons3&logoColor=white)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-web_+_MCP-009688?style=flat-square&logo=fastapi&logoColor=white)
-![MCP](https://img.shields.io/badge/MCP-Claude_·_Cursor-000000?style=flat-square)
+![License MIT](https://img.shields.io/badge/license-MIT-8b5cf6?style=flat-square)
+
+</div>
+
+> **When an agent's memory is wrong, poisoned, or legally required to disappear — can you delete it _everywhere_, atomically, and _prove_ it's gone?**
+
+Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
+
+Browsing, recall, the knowledge graph, and `/verify` are open to everyone. Writes are **token-gated** (an erasure product should never let anonymous visitors delete data) — to run **Forget & Prove** yourself, paste the demo token **`obliviate-judge-75a0f127`** in **Settings → Security**.
+
+<div align="center">
 
 <br>
 
