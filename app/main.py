@@ -550,9 +550,8 @@ def _esc(v) -> str:
 def _render_certificate(row, event_id: str) -> str:
     """Build the Obliviate Certificate of Erasure page from an erasure_events row.
 
-    Design adapted from the author's earlier project Lethe (see README attribution);
-    the CockroachDB-native facts — the MVCC transaction timestamp and the live,
-    view-time proof-of-absence — are new here.
+    The CockroachDB-native facts — the MVCC transaction timestamp and the live,
+    view-time proof-of-absence — are read straight from the cluster.
     """
     import hashlib
     workspace, subject, t_before, docs, nodes, edges, shared, created_at, subject_salt = row

@@ -2,15 +2,17 @@
 
 ![Obliviate — verifiable forgetting for AI-agent memory, CockroachDB-native](docs/media/banner.gif)
 
-# Obliviate
-
-### Verifiable forgetting for AI-agent memory — CockroachDB-native
-
 **When an agent's memory is wrong, poisoned, or legally required to disappear — can you delete it *everywhere*, atomically, and *prove* it's gone?**
 
 Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
 
-`MIT licensed` · `CockroachDB Basic` · `Managed MCP Server` · `AWS S3 (Object Lock / WORM)` · `Independently verifiable`
+![License MIT](https://img.shields.io/badge/License-MIT-8b5cf6?style=flat-square)
+![CockroachDB Basic](https://img.shields.io/badge/CockroachDB-Basic-6933FF?style=flat-square&logo=cockroachlabs&logoColor=white)
+![Cloud MCP](https://img.shields.io/badge/Cloud_MCP-independently_verifiable-22c55e?style=flat-square)
+![AWS S3 WORM](https://img.shields.io/badge/AWS_S3-Object_Lock_·_WORM-FF9900?style=flat-square&logo=amazons3&logoColor=white)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-web_+_MCP-009688?style=flat-square&logo=fastapi&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP-Claude_·_Cursor-000000?style=flat-square)
 
 <br>
 
@@ -57,11 +59,13 @@ Ask in plain English. Answers are grounded **strictly** in the stored graph, cit
 
 ### Forget & Prove — the hero
 
-One click erases a subject in a single ACID transaction, then proves it three ways — *it existed* (AS OF SYSTEM TIME), *it's gone* (live vector + graph re-check), *it's irreversible* (crypto-shred + object-locked S3 certificate).
+One click erases a subject in a single ACID transaction, then proves it three ways — *it existed* (`AS OF SYSTEM TIME`), *it's gone* (live vector + graph re-check), *it's irreversible* (crypto-shred + object-locked S3 certificate). Entities shared with a *surviving* subject are **kept, not deleted** (note the **1 shared kept**).
 
-| The 3-part proof | The signed certificate |
-|:---:|:---:|
-| ![Forget & Prove](docs/screenshots/05-forget-proof.png) | ![Certificate of Erasure](docs/screenshots/07-certificate.png) |
+![Forget &amp; Prove — the live 3-part proof of erasure](docs/media/forget-prove.gif)
+
+The signed, object-locked **Certificate of Erasure** it produces:
+
+![Certificate of Erasure](docs/screenshots/07-certificate.png)
 
 **Verify it yourself** — anyone can re-check a certificate at **`/verify`**: it re-derives the SHA-256 content hash and checks the ECDSA (P-256) signature, and shows the public key so the signature can be verified offline. A tampered field breaks the hash; a forged certificate fails the signature.
 
@@ -134,21 +138,16 @@ Obliviate implements research-backed *layered* deletion rather than naive `DELET
 
 The eval harness (`evals/`) reproduces a forget-correctness benchmark (blind-judge scored) and a Reconstruction-Robustness Score comparing naive deletion vs. Obliviate.
 
-## Prior work & attribution
+## Built for this hackathon
 
-Obliviate's **visual design and UI are adapted from my earlier open-source project, Lethe**, which
-explored verifiable forgetting on a different stack (Cognee + Kùzu + LanceDB). **The CockroachDB-native
-memory engine is newly built for this hackathon** — the knowledge graph as relational tables, vectors
-in the C-SPANN index, the atomic transactional `forget`, the `AS OF SYSTEM TIME` proof, the per-subject
-crypto-shred, and the signed erasure certificate. Moving to CockroachDB is precisely what makes
-forgetting a **single ACID transaction** and the certificate provable from the database itself —
-something that was impossible when the graph and vectors lived in two separate stores.
-
-## What's new here
-
-Structurally new versus the prior project: a **single ACID cascade** across a distributed SQL + vector
-store (replacing three separate systems and their consistency gaps), **`AS OF SYSTEM TIME`** as the proof
-mechanism, **object-locked crypto-shred certificates**, and an **exhaustive recursive-CTE blast-radius**.
+Obliviate's CockroachDB-native memory engine was **built new for this hackathon** — the knowledge graph as
+relational tables, vectors in the C-SPANN index, the atomic transactional `forget`, the `AS OF SYSTEM TIME`
+proof, the per-subject crypto-shred, and the signed erasure certificate. Unifying the graph, the vectors,
+and the audit trail into **one CockroachDB store** is precisely what makes forgetting a **single ACID
+transaction** and the certificate provable from the database itself — something impossible when the graph
+and vectors live in two separate stores. That single-store design is the structural core: a **single ACID
+cascade**, **`AS OF SYSTEM TIME`** as the proof mechanism, **object-locked crypto-shred certificates**, and
+an **exhaustive recursive-CTE blast-radius**.
 
 ## Honest limitations
 
