@@ -6,6 +6,23 @@ Deleting a row doesn't erase its bytes from MVCC history, backups, or a leaked s
 So Obliviate uses **envelope encryption**: every document is encrypted with a per-
 `(workspace, subject)` AES-256-GCM data key, and that key is wrapped by a root key.
 
+*Destroy one small key and every copy of the ciphertext becomes unrecoverable:*
+
+```mermaid
+flowchart LR
+  RK["root key"] --> DK["per-subject data key<br/>AES-256-GCM, wrapped"]
+  DK --> CT["encrypted documents<br/>ciphertext"]
+  F["forget destroys<br/>the data key"] --> DK
+  DK --> X["ciphertext in MVCC, backups, S3<br/>cryptographically unrecoverable"]
+  class RK,DK v
+  class CT s
+  class F bad
+  class X bad
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+```
+
 `forget` **destroys the wrapped data key**. Without it, the ciphertext — wherever it
 survives — is cryptographically unrecoverable. This mirrors the *Ghost Vectors* paper's
 "Epoch Key Rotation," which drops PII recovery from ~99% to **0%** while generating a

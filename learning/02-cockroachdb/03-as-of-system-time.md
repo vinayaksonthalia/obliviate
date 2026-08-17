@@ -4,6 +4,21 @@ Most "verifiable deletion" systems keep a separate audit table that says *"we de
 X."* You have to trust that table. Obliviate doesn't need one: CockroachDB's MVCC lets
 us read the database **as it was** at a past timestamp.
 
+*Anchor before, delete, then read the past to reconstruct pre-delete state:*
+
+```mermaid
+flowchart LR
+  T0["anchor t_before<br/>captured BEFORE the txn"] --> T1["forget txn commits<br/>strictly later"]
+  T1 --> T2["re-read AS OF SYSTEM TIME t_before"]
+  T2 --> R["reconstructs pre-delete state<br/>returns 1 row, not 0"]
+  class T0 q
+  class T1 bad
+  class T2,R ok
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef ok fill:#065f46,stroke:#34d399,color:#eafff5
+```
+
 ```sql
 SELECT name, type, description
 FROM nodes AS OF SYSTEM TIME '<t_before>'

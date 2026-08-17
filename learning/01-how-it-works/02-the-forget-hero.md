@@ -3,16 +3,26 @@
 `forget(subject)` is **one serializable CockroachDB transaction**. Either all of it
 commits or none of it does — memory is never left half-erased.
 
+*One atomic transaction, anchored by a timestamp taken just before it:*
+
 ```mermaid
 flowchart TB
-  A["anchor t_before = cluster_logical_timestamp()\n(BEFORE the txn opens)"] --> T
+  A["anchor t_before = cluster_logical_timestamp<br/>BEFORE the txn opens"] --> T
   subgraph T["one serializable transaction"]
-    B["delete subject-EXCLUSIVE nodes + their edges"]
-    C["INVALIDATE shared nodes\n(array_remove subject — keep for survivors)"]
+    B["delete subject-EXCLUSIVE nodes plus their edges"]
+    C["INVALIDATE shared nodes<br/>array_remove subject, keep for survivors"]
     D["delete the subject's documents"]
     E["crypto-shred the subject's data key"]
-    G["write erasure_events (audit)"]
+    G["write erasure_events audit"]
   end
+  class A q
+  class B,D,E bad
+  class C ok
+  class G s3
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef ok fill:#065f46,stroke:#34d399,color:#eafff5
+  classDef s3 fill:#92400e,stroke:#fbbf24,color:#fff
 ```
 
 Two design decisions carry the weight:

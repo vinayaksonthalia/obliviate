@@ -5,10 +5,18 @@ trail — in one CockroachDB store**. Three verbs move through it:
 
 ```mermaid
 flowchart LR
-  I["remember\n(ingest)"] --> S[("CockroachDB\ndocuments · nodes+VECTOR · edges\nsubject_keys · erasure_events")]
-  A["recall\n(ask)"] --> S
-  F["forget\n(erase + prove)"] --> S
-  S --> C["signed WORM\ncertificate (S3)"]
+  I["remember<br/>ingest"] --> S[("CockroachDB<br/>documents · nodes plus VECTOR · edges<br/>subject_keys · erasure_events")]
+  A["recall<br/>ask"] --> S
+  F["forget<br/>erase plus prove"] --> S
+  S --> C["signed WORM<br/>certificate in S3"]
+  class I,A v
+  class S s
+  class F bad
+  class C s3
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef s3 fill:#92400e,stroke:#fbbf24,color:#fff
 ```
 
 - **remember** — a document is stored *encrypted* under its subject's key; an LLM

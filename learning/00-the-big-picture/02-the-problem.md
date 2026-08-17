@@ -2,6 +2,22 @@
 
 Agent memory that only ever grows is a liability.
 
+*Three ways an ever-growing store turns into a liability:*
+
+```mermaid
+flowchart TB
+  M[("memory only grows<br/>nothing is ever removed")] --> A["poisoned fact<br/>propagates through the graph"]
+  M --> B["departed customer data<br/>past GDPR retention window"]
+  M --> C["decommissioned system<br/>stale runbooks mislead on-call"]
+  A --> L["liability<br/>delete is theater, vectors recoverable"]
+  B --> L
+  C --> L
+  class M s
+  class A,B,C,L bad
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+```
+
 - **A poisoned or wrong fact** propagates through the knowledge graph and corrupts
   every future answer. You need to cut it out cleanly — everywhere it reached.
 - **A departed customer's data** lingers past its legal retention window. The EU GDPR

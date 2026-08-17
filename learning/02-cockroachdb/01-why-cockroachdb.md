@@ -4,6 +4,25 @@ Obliviate unifies what normally takes **three systems** — a graph database, a 
 store, and an audit log — into **one durable, governed store**. That is only possible
 because of specific CockroachDB primitives:
 
+*Three bolt-on systems collapse into one transactional store:*
+
+```mermaid
+flowchart LR
+  subgraph OLD["the usual bolt-on stack"]
+    G1["graph database"]
+    V1["vector store"]
+    A1["audit log"]
+  end
+  OLD --> X["three systems<br/>drift out of sync"]
+  ONE[("one CockroachDB store<br/>graph plus VECTOR plus audit trail<br/>one ACID transaction")]
+  class G1,V1,A1 q
+  class X bad
+  class ONE s
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+```
+
 | Capability | What it does for Obliviate |
 |---|---|
 | **Distributed Vector Index (C-SPANN)** | Semantic recall over `VECTOR(384)` columns, *index-backed* (verified via `EXPLAIN`), in the same table as the relational data. |

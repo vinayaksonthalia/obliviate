@@ -2,6 +2,29 @@
 
 Obliviate's design is grounded in two 2026 papers on verifiable deletion.
 
+*Naive deletion touches one layer; layered deletion removes them together:*
+
+```mermaid
+flowchart TB
+  REQ["deletion request"] --> N["naive delete<br/>only the row the API knew<br/>about 18 percent robust"]
+  REQ --> L["layered delete"]
+  subgraph L2["remove together, about 94 percent robust"]
+    D1["raw document"]
+    D2["derived entities"]
+    D3["edges"]
+    D4["vectors"]
+  end
+  L --> L2
+  class REQ q
+  class N bad
+  class L v
+  class D1,D2,D3,D4 ok
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef ok fill:#065f46,stroke:#34d399,color:#eafff5
+```
+
 ## Ghost Vectors (arXiv:2606.18497)
 
 *"Ghost Vectors: Soft-Deleted Embeddings Remain Reconstructible in HNSW Vector

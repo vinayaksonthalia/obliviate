@@ -8,6 +8,25 @@ remember more?* Obliviate answers the one that regulated, production memory actu
 demands: **when a memory is wrong, poisoned, or legally required to disappear — can
 you delete it everywhere, atomically, and prove it?**
 
+*The whole loop, over one store:*
+
+```mermaid
+flowchart LR
+  R["remember<br/>store a fact"] --> S[("one CockroachDB store<br/>graph plus vectors plus audit")]
+  S --> C["recall<br/>answer from memory"]
+  C --> F["forget<br/>erase a subject"]
+  F --> P["certificate<br/>proof it is gone"]
+  F -.-> S
+  class R,C v
+  class S s
+  class F bad
+  class P s3
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef bad fill:#9d174d,stroke:#f472b6,color:#fff
+  classDef s3 fill:#92400e,stroke:#fbbf24,color:#fff
+```
+
 ## ELI10
 
 Imagine an assistant that has read every runbook your team ever wrote. One night

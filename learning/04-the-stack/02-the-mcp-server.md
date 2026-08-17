@@ -4,6 +4,24 @@ Obliviate ships its own **MCP server** (FastMCP) so any MCP-compatible agent —
 Desktop / Code, Cursor — can use verifiable memory as tools, backed by the same
 CockroachDB the web app uses.
 
+*An auditor can verify erasure without trusting the app:*
+
+```mermaid
+flowchart LR
+  AUD["auditor"] --> MCP["CockroachDB Cloud<br/>Managed MCP"]
+  MCP --> SEL["SELECT on the cluster<br/>directly"]
+  SEL --> DB[("same CockroachDB")]
+  SEL --> R["confirms 0 rows<br/>for the subject"]
+  class AUD,MCP q
+  class SEL v
+  class DB s
+  class R ok
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef ok fill:#065f46,stroke:#34d399,color:#eafff5
+```
+
 ```
 claude mcp add obliviate -- python /ABS/PATH/obliviate/mcp_server.py
 ```

@@ -2,6 +2,24 @@
 
 Deliberately small, self-hostable, and $0 to run.
 
+*The whole architecture, one FastAPI app on EC2 over one store:*
+
+```mermaid
+flowchart TB
+  BR["browser plus MCP agents"] --> API["FastAPI<br/>web plus MCP server<br/>fastembed local"]
+  API --> DB[("CockroachDB<br/>graph · vectors · audit")]
+  API --> S3["S3 Object-Lock<br/>WORM certificate"]
+  API --> LLM["Cerebras or BYO LLM<br/>OpenAI-compatible"]
+  class BR,LLM q
+  class API v
+  class DB s
+  class S3 s3
+  classDef q fill:#075985,stroke:#38bdf8,color:#fff
+  classDef v fill:#6d28d9,stroke:#a78bfa,color:#fff
+  classDef s fill:#4c1d95,stroke:#c4b5fd,color:#fff
+  classDef s3 fill:#92400e,stroke:#fbbf24,color:#fff
+```
+
 | Layer | Choice | Why |
 |---|---|---|
 | **Store** | CockroachDB (Basic, free) | graph + vectors + audit + time-travel in one ACID store |
