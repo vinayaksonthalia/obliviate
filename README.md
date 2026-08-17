@@ -49,7 +49,11 @@ One click erases a subject in a single ACID transaction, then proves it three wa
 |:---:|:---:|
 | ![Forget & Prove](docs/screenshots/05-forget-proof.png) | ![Certificate of Erasure](docs/screenshots/07-certificate.png) |
 
-The knowledge graph (31 entities from 13 seeded systems) and the in-app docs:
+**Verify it yourself** — anyone can re-check a certificate at **`/verify`**: it re-derives the SHA-256 content hash and checks the ECDSA (P-256) signature, and shows the public key so the signature can be verified offline. A tampered field breaks the hash; a forged certificate fails the signature.
+
+![Certificate verifier](docs/screenshots/09-verify.png)
+
+The knowledge graph (47 entities · 83 relationships, live physics) and the in-app docs:
 
 | Knowledge graph | Docs (`/learn`) |
 |:---:|:---:|
