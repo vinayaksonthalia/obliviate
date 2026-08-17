@@ -9,6 +9,8 @@ Obliviate collapses three systems — a graph database, a vector store, and an a
 flowchart TB
     U["User / AI agent"] -->|HTTPS| API["FastAPI application"]
     MCP["Obliviate MCP server<br/>(FastMCP)"] -->|"remember · recall · forget"| CRDB
+    AUD["External auditor / agent"] -->|"select_query — independent verify"| CMCP["CockroachDB Cloud<br/>Managed MCP Server"]
+    CMCP --> CRDB
     API -->|"vectors · AS OF SYSTEM TIME · cascade · recursive CTEs"| CRDB
     subgraph CRDB["CockroachDB — one transactional store"]
         D["documents<br/>(encrypted)"]

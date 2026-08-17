@@ -13,15 +13,19 @@ Deadline: **Aug 18, 2026, 5:00pm EDT**. This maps every rule to our deliverable.
 - [ ] Optional: architecture diagram (have one) + feedback on CockroachDB tooling.
 
 ## Challenge requirements
-- [x] **≥ 2 CockroachDB capabilities, meaningfully integrated** — we use **five**:
-  1. **Distributed Vector Indexing (C-SPANN)** — semantic recall + the "search returns nothing"
+- [x] **≥ 2 CockroachDB tools, meaningfully integrated** — we use **six**:
+  1. **CockroachDB Cloud Managed MCP Server** — Cockroach Labs' own hosted MCP endpoint over the cluster.
+     We use it for **independent, third-party-verifiable erasure**: anyone can point an MCP agent at
+     `cockroachlabs.cloud/mcp` and `select_query` the store to confirm a forgotten subject's rows are
+     gone — proof that never routes through Obliviate's code. Wired in `.mcp.json`; see `docs/MCP.md`.
+  2. **Distributed Vector Indexing (C-SPANN)** — semantic recall + the "search returns nothing"
      erasure proof (verified index-backed, not full-scan — see `docs/SMOKE_TESTS.md`).
-  2. **`AS OF SYSTEM TIME`** time-travel — the proof-of-prior-existence receipt.
-  3. **Serializable transactions** — the cascade delete + invalidate + crypto-shred all commit or none do.
-  4. **Recursive CTEs** — exhaustive blast-radius traversal of the knowledge graph.
-  5. **Row-level TTL** — retention/decay enforcement.
-  - **MCP-native:** Obliviate ships its own MCP server (FastMCP) backed by CockroachDB, so any MCP
-    agent (Claude Desktop/Code, Cursor) can remember, recall, and provably forget through the same store.
+  3. **`AS OF SYSTEM TIME`** time-travel — the proof-of-prior-existence receipt.
+  4. **Serializable transactions** — the cascade delete + invalidate + crypto-shred all commit or none do.
+  5. **Recursive CTEs** — exhaustive blast-radius traversal of the knowledge graph.
+  6. **Row-level TTL** — retention/decay enforcement.
+  - **Also MCP-native on our side:** Obliviate ships its own MCP server (FastMCP) backed by the same
+    cluster, so agents can remember, recall, and provably forget through high-level tools too.
 - [x] **≥ 1 AWS service** — **Amazon S3** (object-locked / WORM erasure certificates) + **EC2**
       (hosting the deployed app). Erasure certificates are signed **in-process** with ECDSA (P-256).
 - [ ] **Newly created during the submission period** — new repo, new CockroachDB-native codebase.

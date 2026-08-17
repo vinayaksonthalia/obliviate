@@ -68,9 +68,10 @@ Obliviate unifies what normally takes three systems — a graph database, a vect
 - **Serializable transactions** — the cascade delete + invalidate + crypto-shred either all commit or none do.
 - **Recursive CTEs** — exhaustive, by-construction blast-radius traversal of the knowledge graph.
 - **Row-level TTL** — retention enforced by the storage engine. Opt-in per row (`ttl_expire_at`): documents expire only when a retention policy sets it, so nothing is deleted by a blanket clock.
-- **MCP-native** — Obliviate ships its own MCP server (FastMCP) backed by CockroachDB, so any MCP agent (Claude Desktop/Code, Cursor) can remember, recall, and *provably forget* through the same governed store.
+- **Managed MCP Server (independent verification)** — Obliviate wires CockroachDB Cloud's **own managed MCP endpoint** (`cockroachlabs.cloud/mcp`). This is the strongest form of the erasure claim: an auditor doesn't have to trust *our* API when it says "it's gone" — they point their own MCP agent at Cockroach Labs' hosted endpoint and `select_query` the cluster directly to confirm the forgotten subject's rows are truly absent. Proof that never routes through Obliviate's code. See [`docs/MCP.md`](docs/MCP.md).
+- **MCP-native (our own tools)** — Obliviate *also* ships its own MCP server (FastMCP) backed by the same cluster, so any MCP agent (Claude Desktop/Code, Cursor) can remember, recall, and *provably forget* through high-level tools.
 
-**CockroachDB capabilities used (load-bearing):** Distributed Vector Indexing (C-SPANN) · `AS OF SYSTEM TIME` · Serializable transactions · Recursive CTEs · Row-level TTL.
+**CockroachDB tools used (load-bearing):** CockroachDB Cloud Managed MCP Server · Distributed Vector Indexing (C-SPANN) · `AS OF SYSTEM TIME` · Serializable transactions · Recursive CTEs · Row-level TTL.
 **AWS services used:** S3 (object-locked / WORM erasure certificates) · EC2 (hosting). Certificates are signed **in-process** with ECDSA (P-256); a Lambda-based signer is an optional deployment variant, not required.
 
 ## Architecture
