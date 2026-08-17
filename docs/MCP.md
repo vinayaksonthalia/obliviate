@@ -10,6 +10,8 @@ the **same CockroachDB cluster**, so what an agent sees is always the real, live
 
 Both are wired in [`.mcp.json`](../.mcp.json) at the repo root.
 
+**Cross-platform:** the managed `cockroachdb-cloud` server is a hosted HTTP endpoint — no local runtime, identical on Windows / Linux / macOS. The local `obliviate` server launches via `uv run mcp_server.py`, so it works the same on every OS (no `.venv/bin` vs `.venv\Scripts` path differences). One-time setup: install [uv](https://docs.astral.sh/uv/), then `uv venv && uv pip install -r requirements.txt`.
+
 ## Why the managed server matters — verifiable erasure you don't have to take our word for
 
 Obliviate's whole thesis is *provable* forgetting. The weakest link in any "we deleted it" claim is that

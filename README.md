@@ -8,11 +8,17 @@
 
 Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — documents, graph nodes, edges, and vectors — in **one ACID transaction**, then proves erasure three ways: an `AS OF SYSTEM TIME` before/after diff, a live vector + graph re-search that returns nothing, and a crypto-shredded, object-locked deletion certificate.
 
-`MIT licensed` · `CockroachDB Basic` · `AWS S3 (Object Lock / WORM)` · `MCP-native`
+`MIT licensed` · `CockroachDB Basic` · `Managed MCP Server` · `AWS S3 (Object Lock / WORM)` · `Independently verifiable`
 
 <br>
 
 ![Obliviate landing](docs/screenshots/01-landing-hero.png)
+
+<br>
+
+*Living memory — the knowledge graph with real-time physics (47 entities · 83 relationships, all in CockroachDB):*
+
+![Obliviate knowledge graph — live physics](docs/media/graph.gif)
 
 </div>
 
@@ -40,6 +46,12 @@ Point it at an entity — a customer, a decommissioned system, a poisoned memory
 Two applications of the same primitive:
 - **Data-integrity / incident response** — a poisoned or wrong fact entered your agent's memory. Cut it out cleanly, cluster-wide, and prove the graph is clean again.
 - **Compliance** — GDPR/HIPAA right-to-erasure with a certificate you can hand an auditor.
+
+### Grounded recall — with sources, and honest about absence
+
+Ask in plain English. Answers are grounded **strictly** in the stored graph, cite their sources, and decline honestly when a fact isn't on record — the exact behavior that makes forgetting provable.
+
+![Obliviate chat — grounded answer with sources](docs/media/chat.gif)
 
 ### Forget & Prove — the hero
 

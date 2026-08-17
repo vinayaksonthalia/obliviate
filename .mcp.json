@@ -8,8 +8,8 @@
       }
     },
     "obliviate": {
-      "command": "python",
-      "args": ["mcp_server.py"]
+      "command": "uv",
+      "args": ["run", "mcp_server.py"]
     }
   }
 }
