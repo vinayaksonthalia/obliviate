@@ -8,6 +8,8 @@ Obliviate can. It cascade-deletes an entity's entire knowledge sub-graph — doc
 
 ### ▶ [Try the live demo](https://43-204-114-100.nip.io/) &nbsp;·&nbsp; running on AWS EC2
 
+Browsing, recall, the knowledge graph, and `/verify` are open to everyone. Writes are **token-gated** (an erasure product should never let anonymous visitors delete data) — to run **Forget & Prove** yourself, paste the demo token **`obliviate-judge-75a0f127`** in **Settings → Security**.
+
 [![Live demo](https://img.shields.io/badge/▶_Live_demo-online-22c55e?style=flat-square)](https://43-204-114-100.nip.io/)
 ![License MIT](https://img.shields.io/badge/License-MIT-8b5cf6?style=flat-square)
 ![CockroachDB Basic](https://img.shields.io/badge/CockroachDB-Basic-6933FF?style=flat-square&logo=cockroachlabs&logoColor=white)
