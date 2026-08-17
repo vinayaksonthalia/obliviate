@@ -681,7 +681,7 @@ _VERIFY_TEMPLATE = """<!doctype html>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
 <style>
  :root{--ink:#0f172a;--muted:#64748b;--faint:#94a3b8;--line:#e2e8f0;--brand:#7c3aed;--paper:#fff;--wash:#f6f7fc;--ok:#059669;--bad:#e11d48}
- @media(prefers-color-scheme:dark){:root{--ink:#e5e7eb;--muted:#94a3b8;--faint:#64748b;--line:#232336;--brand:#8b5cf6;--paper:#12121c;--wash:#0a0a12}}
+ :root.dark{--ink:#e5e7eb;--muted:#94a3b8;--faint:#64748b;--line:#232336;--brand:#8b5cf6;--paper:#12121c;--wash:#0a0a12}
  *{box-sizing:border-box}body{margin:0;background:var(--wash);color:var(--ink);font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
  .mono{font-family:'Geist Mono',ui-monospace,monospace}.serif{font-family:'Instrument Serif',Georgia,serif}
  .wrap{max-width:760px;margin:44px auto;padding:0 20px}
@@ -703,11 +703,13 @@ _VERIFY_TEMPLATE = """<!doctype html>
  .pill.ok{background:rgba(5,150,105,.12);color:var(--ok)}.pill.bad{background:rgba(225,29,72,.12);color:var(--bad)}
  .pk{margin-top:16px;font-size:11px;color:var(--muted)}.pk pre{margin:6px 0 0;padding:10px;background:var(--wash);border-radius:8px;overflow:auto;font-size:10.5px;white-space:pre-wrap;word-break:break-all}
  a{color:var(--brand)}
-</style></head><body>
+</style>
+<script>(function(){var t=localStorage.theme;var sys=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;if(t==='dark'||(t!=='light'&&sys))document.documentElement.classList.add('dark');})();</script>
+</head><body>
 <div class="wrap">
  <div class="top">
    <svg width="30" height="22" viewBox="0 0 28 24" fill="none" style="color:var(--brand)"><path d="M16.97 7.97A7.2 7.2 0 1 0 16.97 16.03" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="19.6" cy="12" r="1.25" fill="currentColor"/><circle cx="22.6" cy="12" r="0.95" fill="currentColor" opacity=".6"/><circle cx="25.2" cy="12" r="0.62" fill="currentColor" opacity=".32"/></svg>
-   <span class="wm">Obliviate</span><span class="tag">Certificate Verifier</span>
+   <a href="/app" class="wm" style="text-decoration:none;color:inherit" title="Back to the app">Obliviate</a><a href="/app" class="tag" style="text-decoration:none">&larr; Back to app</a><span class="tag" style="margin-left:14px">Certificate Verifier</span>
  </div>
  <h1>Verify a Certificate of Erasure</h1>
  <p class="lede">Paste an Obliviate erasure certificate (the JSON returned by a forget, or the object stored in S3). This page re-derives its <strong>SHA-256 content hash</strong> and checks the <strong>ECDSA (P-256) signature</strong> — a tampered field breaks the hash; a forged certificate fails the signature. No trust in our server required: the public key is shown so anyone can verify offline.</p>

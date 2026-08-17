@@ -1,5 +1,7 @@
 <div align="center">
 
+![Obliviate — verifiable forgetting for AI-agent memory, CockroachDB-native](docs/media/banner.gif)
+
 # Obliviate
 
 ### Verifiable forgetting for AI-agent memory — CockroachDB-native
