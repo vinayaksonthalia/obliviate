@@ -71,6 +71,42 @@ def stale_references(subject: str | None = None, workspace: str = "default") -> 
         return hits
 
 
+STALE_DAYS = 180        # aging → eligible for reversible auto-demote
+VERY_STALE_DAYS = 365   # very stale → queued for your approval before permanent delete
+
+
+def run_cycle(apply: bool = False, workspace: str = "default") -> dict:
+    """The decay loop: one bounded pass over every record by review-age. Aging knowledge is
+    auto-demoted (reversible — it sinks in answers but stays restorable); the very stale are
+    queued for approval before any permanent delete. With apply=False this is a FREE preview —
+    nothing changes until you apply."""
+    aging = aging_documents(STALE_DAYS, workspace)
+    to_demote, to_queue, seen = [], [], set()
+    for d in aging:
+        if d["subject"] in seen:
+            continue
+        seen.add(d["subject"])
+        (to_queue if d["age_days"] >= VERY_STALE_DAYS else to_demote).append(d)
+
+    nodes_demoted = 0
+    if apply:
+        for d in to_demote:
+            nodes_demoted += demote(d["subject"], DEMOTE_MILD, workspace)
+        with store.connect() as conn, conn.cursor() as c:
+            c.execute(
+                "INSERT INTO timeline (workspace, kind, subject, detail) VALUES (%s, 'demote', %s, %s)",
+                (workspace, "curation-cycle",
+                 f"decay cycle: auto-demoted {len(to_demote)} aging subjects "
+                 f"({nodes_demoted} nodes, reversible); {len(to_queue)} very-stale queued for approval"),
+            )
+    return {
+        "applied": apply,
+        "demote": [{"subject": d["subject"], "age_days": d["age_days"]} for d in to_demote],
+        "queue": [{"subject": d["subject"], "age_days": d["age_days"]} for d in to_queue],
+        "nodes_demoted": nodes_demoted,
+    }
+
+
 def aging_documents(days: int = 180, workspace: str = "default") -> list[dict]:
     """Documents not reviewed within `days` — retention-review candidates (row-level TTL backstops)."""
     with store.connect() as conn, conn.cursor() as c:

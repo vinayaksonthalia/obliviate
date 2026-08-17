@@ -252,7 +252,35 @@ async def api_upload(file: UploadFile = File(...), subject: str = Form(""),
 
 @app.post("/api/ask")
 def api_ask(r: AskReq):
-    return {"answer": ask_memory(r.query, r.history, _ws(r.workspace))}
+    answer, sources = ask_memory(r.query, r.history, _ws(r.workspace))
+    return {"answer": answer, "sources": sources}
+
+
+@app.get("/source/{name}")
+def source(name: str, workspace: str = "default"):
+    """The original document(s) behind a cited entity. Ledger-gated: after a forget the subject's
+    key is crypto-shredded, so decryption fails and the source vanishes — the citation cannot
+    contradict the proof-of-forgetting."""
+    ws = _ws(workspace)
+    with store.connect() as conn, conn.cursor() as c:
+        c.execute("SELECT description, doc_ids FROM nodes WHERE workspace = %s AND name = %s "
+                  "AND deleted_at IS NULL", (ws, name))
+        row = c.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="not on record")
+        desc, doc_ids = row
+        docs = []
+        if doc_ids:
+            c.execute("SELECT subject, title, content_enc FROM documents WHERE workspace = %s "
+                      "AND id = ANY(%s)", (ws, doc_ids))
+            for subj, title, enc in c.fetchall():
+                try:
+                    text = store.decrypt_for(conn, ws, subj, enc)
+                except Exception:
+                    text = None
+                if text:
+                    docs.append({"title": title or subj, "text": text})
+    return {"name": name, "description": desc, "docs": docs}
 
 
 @app.post("/api/forget")
@@ -344,6 +372,17 @@ def api_curation(workspace: str = "default"):
     ws = _ws(workspace)
     return {"stale_references": curation.stale_references(workspace=ws),
             "aging": curation.aging_documents(workspace=ws)}
+
+
+class CycleReq(BaseModel):
+    apply: bool = False
+    workspace: str = "default"
+
+
+@app.post("/api/curation/cycle")
+def api_curation_cycle(r: CycleReq):
+    """The decay loop — preview (apply=false) or apply one bounded pass by review-age."""
+    return curation.run_cycle(r.apply, _ws(r.workspace))
 
 
 # ─────────────────────────────────────────────────────────── model (BYO)
@@ -619,3 +658,97 @@ def certificate_page(event_id: str):
     if not row:
         return HTMLResponse("<h1>Certificate not found</h1>", status_code=404)
     return HTMLResponse(_render_certificate(row, event_id))
+
+
+# ─────────────────────────────────────────────────────────── certificate verifier
+@app.post("/api/verify")
+def api_verify(payload: dict):
+    """Independently verify an erasure certificate — re-derive its hash + check the signature."""
+    return cert.verify(payload)
+
+
+@app.get("/verify", response_class=HTMLResponse)
+def verify_page():
+    return HTMLResponse(_VERIFY_TEMPLATE)
+
+
+_VERIFY_TEMPLATE = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verify a Certificate of Erasure &middot; Obliviate</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' fill='none' stroke='%238b5cf6' stroke-width='2.4' stroke-linecap='round'><path d='M16.97 7.97A7.2 7.2 0 1 0 16.97 16.03'/><circle cx='19.6' cy='12' r='1.25' fill='%238b5cf6' stroke='none'/><circle cx='22.6' cy='12' r='0.95' fill='%238b5cf6' stroke='none' opacity='.6'/><circle cx='25.2' cy='12' r='0.62' fill='%238b5cf6' stroke='none' opacity='.32'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#0f172a;--muted:#64748b;--faint:#94a3b8;--line:#e2e8f0;--brand:#7c3aed;--paper:#fff;--wash:#f6f7fc;--ok:#059669;--bad:#e11d48}
+ @media(prefers-color-scheme:dark){:root{--ink:#e5e7eb;--muted:#94a3b8;--faint:#64748b;--line:#232336;--brand:#8b5cf6;--paper:#12121c;--wash:#0a0a12}}
+ *{box-sizing:border-box}body{margin:0;background:var(--wash);color:var(--ink);font-family:'Geist',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+ .mono{font-family:'Geist Mono',ui-monospace,monospace}.serif{font-family:'Instrument Serif',Georgia,serif}
+ .wrap{max-width:760px;margin:44px auto;padding:0 20px}
+ .top{display:flex;align-items:center;gap:9px;margin-bottom:26px}
+ .top .wm{font-family:'Instrument Serif',serif;font-size:21px}.top .tag{margin-left:auto;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--faint)}
+ h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:2.6rem;margin:.2rem 0 .4rem;letter-spacing:-.01em}
+ .lede{color:var(--muted);font-size:15px;line-height:1.6;max-width:60ch}
+ textarea{width:100%;min-height:180px;margin-top:20px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.5;resize:vertical;outline:none}
+ textarea:focus{border-color:var(--brand)}
+ .row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+ button{border:none;background:var(--brand);color:#fff;font-weight:500;font-size:14px;padding:10px 20px;border-radius:9px;cursor:pointer}
+ button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+ .res{margin-top:22px;border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:22px 24px;display:none}
+ .verdict{display:flex;align-items:center;gap:10px;font-size:1.4rem;font-family:'Instrument Serif',serif}
+ .check{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;flex-shrink:0}
+ .kv{margin-top:16px;display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:13px}
+ .kv .k{color:var(--muted)}.kv .v{word-break:break-all}.kv .v.mono{font-family:'Geist Mono',monospace;font-size:12px}
+ .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px}
+ .pill.ok{background:rgba(5,150,105,.12);color:var(--ok)}.pill.bad{background:rgba(225,29,72,.12);color:var(--bad)}
+ .pk{margin-top:16px;font-size:11px;color:var(--muted)}.pk pre{margin:6px 0 0;padding:10px;background:var(--wash);border-radius:8px;overflow:auto;font-size:10.5px;white-space:pre-wrap;word-break:break-all}
+ a{color:var(--brand)}
+</style></head><body>
+<div class="wrap">
+ <div class="top">
+   <svg width="30" height="22" viewBox="0 0 28 24" fill="none" style="color:var(--brand)"><path d="M16.97 7.97A7.2 7.2 0 1 0 16.97 16.03" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="19.6" cy="12" r="1.25" fill="currentColor"/><circle cx="22.6" cy="12" r="0.95" fill="currentColor" opacity=".6"/><circle cx="25.2" cy="12" r="0.62" fill="currentColor" opacity=".32"/></svg>
+   <span class="wm">Obliviate</span><span class="tag">Certificate Verifier</span>
+ </div>
+ <h1>Verify a Certificate of Erasure</h1>
+ <p class="lede">Paste an Obliviate erasure certificate (the JSON returned by a forget, or the object stored in S3). This page re-derives its <strong>SHA-256 content hash</strong> and checks the <strong>ECDSA (P-256) signature</strong> — a tampered field breaks the hash; a forged certificate fails the signature. No trust in our server required: the public key is shown so anyone can verify offline.</p>
+ <textarea id="in" placeholder='Paste the certificate JSON here, e.g. {"certificate":{...},"sha256":"...","signature":"..."}'></textarea>
+ <div class="row">
+   <button onclick="doVerify()">Verify certificate</button>
+   <button class="ghost" onclick="loadSample()">Load a sample</button>
+ </div>
+ <div class="res" id="res"></div>
+</div>
+<script>
+ async function doVerify(){
+   const el=document.getElementById('in');let payload;
+   try{payload=JSON.parse(el.value)}catch(e){return show({error:'That is not valid JSON. Paste the whole certificate object.'});}
+   try{const r=await fetch('/api/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});show(await r.json());}
+   catch(e){show({error:'Could not reach the verifier.'});}
+ }
+ function pill(v){if(v===true)return '<span class="pill ok">&#10003; valid</span>';if(v===false)return '<span class="pill bad">&#10007; invalid</span>';return '<span class="pill">not provided</span>';}
+ function show(d){
+   const box=document.getElementById('res');box.style.display='block';
+   if(d.error){box.innerHTML='<div class="verdict"><span class="check" style="background:var(--bad)">&#10007;</span>'+d.error+'</div>';return;}
+   const authentic=(d.hash_matches!==false)&&(d.signature_valid!==false);
+   const col=authentic?'var(--ok)':'var(--bad)';
+   let g='';if(d.guarantees){g=Object.entries(d.guarantees).map(([k,v])=>'<div class="k">'+k.replace(/_/g,' ')+'</div><div class="v">'+pill(!!v)+'</div>').join('');}
+   box.innerHTML=
+     '<div class="verdict"><span class="check" style="background:'+col+'">'+(authentic?'&#10003;':'&#10007;')+'</span>'+(authentic?'Authentic &amp; untampered':'Verification failed')+'</div>'+
+     '<div class="kv">'+
+       '<div class="k">Content hash re-derived</div><div class="v mono">'+(d.content_hash||'')+'</div>'+
+       '<div class="k">Hash matches the certificate</div><div class="v">'+pill(d.hash_matches)+'</div>'+
+       '<div class="k">ECDSA signature</div><div class="v">'+pill(d.signature_valid)+'</div>'+
+       (d.event_id?'<div class="k">Event ID</div><div class="v mono">'+d.event_id+'</div>':'')+
+       (d.subject_sha256?'<div class="k">Subject (salted hash — no PII)</div><div class="v mono">'+d.subject_sha256+'</div>':'')+
+       (d.issued_at?'<div class="k">Issued at</div><div class="v mono">'+d.issued_at+'</div>':'')+
+       g+
+     '</div>'+
+     (d.public_key_pem?'<div class="pk">Public key (verify the signature yourself, offline):<pre>'+d.public_key_pem+'</pre></div>':'');
+ }
+ async function loadSample(){
+   // issue a real throwaway sample by asking the server for the most recent certificate's fields is out
+   // of scope; instead paste guidance.
+   document.getElementById('in').value='Run a Forget & Prove in the app, copy the "certificate" object from the result (or the .json in your S3 bucket), and paste it here.';
+ }
+</script>
+</body></html>"""

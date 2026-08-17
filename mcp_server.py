@@ -37,7 +37,7 @@ def remember(subject: str, text: str, workspace: str = "default") -> dict:
 def recall(query: str, workspace: str = "default") -> str:
     """Answer a question strictly from stored memory. If the answer isn't on record, says so —
     it never hallucinates. This honesty is what makes Obliviate's forgetting provable."""
-    return _ask(query, None, workspace)
+    return _ask(query, None, workspace)[0]
 
 
 @mcp.tool

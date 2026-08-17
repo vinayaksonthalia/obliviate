@@ -397,7 +397,7 @@
    const log=document.getElementById('demoLog'),chips=document.getElementById('demoChips'),
          form=document.getElementById('demoForm'),input=document.getElementById('demoInput');
    if(!log||!form)return;
-   const samples=['What do you know about acme-bank?','Who is connected to acme-bank?','What depends on the auth-service?'];
+   const samples=['What do you know about payments-service?','Who is connected to redis-cache?','What depends on the auth-service?'];
    function bub(role,html){const w=document.createElement('div');w.className='flex '+(role==='u'?'justify-end':'justify-start');
      const c=document.createElement('div');c.className='max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed '+(role==='u'?'rounded-br-md bg-zinc-950 text-white dark:bg-white dark:text-black':'rounded-bl-md border border-zinc-300 bg-white dark:border-zinc-800 dark:bg-[#1a2233]');
      c.innerHTML=html;w.appendChild(c);log.appendChild(w);log.scrollTop=log.scrollHeight;return c;}
@@ -488,7 +488,7 @@
      const le=eds.get().filter(e=>e.from==='lc'||e.to==='lc').map(e=>e.id);
      setTimeout(()=>{try{eds.remove(le);nds.remove('lc');}catch(e){}},reduce?0:360);
      showRec(true);if(cap)cap.textContent='legacy-cache forgotten — gone from the graph and the vectors.';if(btn)btn.textContent='Replay';}
-   function restore(){gone=false;showRec(false);if(cap)cap.textContent='An interactive preview of an incident graph — drag a node, or forget the dead one.';if(btn)btn.textContent='Decommission legacy-cache';
+   function restore(){gone=false;showRec(false);if(cap)cap.textContent='An interactive preview of an knowledge graph — drag a node, or forget the dead one.';if(btn)btn.textContent='Forget legacy-cache';
      const p=pal();if(!nds.get('lc'))nds.add({id:'lc',label:'legacy-cache',shape:'dot',value:14,color:ncol(true,p),font:nfont(p)});
      if(!eds.get('e0'))eds.add({id:'e0',from:'auth',to:'lc',color:{color:p.edge},width:1.2});
      if(!eds.get('e2'))eds.add({id:'e2',from:'lc',to:'ss',color:{color:p.edge},width:1.2});}

@@ -109,12 +109,13 @@ def _serialize(nodes, edges) -> str:
     return "\n".join(lines)
 
 
-def ask(query: str, history: list | None = None, workspace: str = "default") -> str:
-    """Answer `query` from a workspace's memory. Folds prior USER turns for follow-ups; never folds
-    past answers (a forgotten fact could resurface from an old answer, poisoning the grounding)."""
+def ask(query: str, history: list | None = None, workspace: str = "default") -> tuple[str, list]:
+    """Answer `query` from a workspace's memory. Returns (answer, sources) — sources are the entity
+    names the answer is grounded in, surfaced as clickable citations. Folds prior USER turns for
+    follow-ups; never folds past answers (a forgotten fact could resurface, poisoning the grounding)."""
     st = _smalltalk(query)
     if st is not None:
-        return st
+        return st, []
 
     q = query
     if history:
@@ -126,7 +127,10 @@ def ask(query: str, history: list | None = None, workspace: str = "default") -> 
     with store.connect() as conn:
         nodes, edges = _retrieve(conn, q, workspace)
     if not nodes:
-        return "I don't have anything on record about that."
+        return "I don't have anything on record about that.", []
 
     user = f"Context (the user's records):\n{_serialize(nodes, edges)}\n\nUser question: {query}"
-    return client.chat(ANSWER_PROMPT, user, temperature=0.0, max_tokens=500).strip()
+    answer = client.chat(ANSWER_PROMPT, user, temperature=0.0, max_tokens=500).strip()
+    # sources = the distinct entity names the answer is grounded in (clickable citations)
+    sources = list(dict.fromkeys(n[1] for n in nodes if n[1]))[:6]
+    return answer, sources

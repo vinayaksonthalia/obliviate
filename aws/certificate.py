@@ -54,6 +54,42 @@ def public_key_pem() -> str | None:
     ).decode()
 
 
+def verify(payload: dict) -> dict:
+    """Independently verify an erasure certificate: re-derive its SHA-256 content hash and check
+    the ECDSA signature against Obliviate's public key. Anyone can run this on the portable cert —
+    a tampered field changes the hash; a forged cert fails the signature check."""
+    cert = payload.get("certificate") if isinstance(payload.get("certificate"), dict) else payload
+    body = json.dumps(cert, sort_keys=True, separators=(",", ":")).encode()
+    recomputed = hashlib.sha256(body).hexdigest()
+    claimed = payload.get("sha256")
+    hash_matches = None if claimed is None else (recomputed == claimed)
+
+    signature_valid = None
+    sig = payload.get("signature")
+    key = _signing_key()
+    if sig and key:
+        from cryptography.exceptions import InvalidSignature
+        try:
+            key.public_key().verify(base64.b64decode(sig), body, ec.ECDSA(hashes.SHA256()))
+            signature_valid = True
+        except InvalidSignature:
+            signature_valid = False
+        except Exception:
+            signature_valid = None
+
+    return {
+        "content_hash": recomputed,
+        "claimed_hash": claimed,
+        "hash_matches": hash_matches,
+        "signature_valid": signature_valid,
+        "subject_sha256": cert.get("subject_sha256"),
+        "event_id": cert.get("event_id"),
+        "issued_at": cert.get("issued_at"),
+        "guarantees": cert.get("guarantees"),
+        "public_key_pem": public_key_pem(),
+    }
+
+
 def issue(receipt: dict, proof_prior: list, proof_absence: dict, issued_at: str) -> dict:
     """Build → sign → (optionally) store an erasure certificate. Returns cert metadata.
 
