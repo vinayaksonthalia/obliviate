@@ -464,14 +464,14 @@
  function invalidateGraphCache(ws){if(ws)delete _gcache[ws];else _gcache={};}
  async function getGraphCached(ws){if(_gcache[ws])return _gcache[ws];try{var d=await(await fetch('/api/graph?workspace='+encodeURIComponent(ws))).json();if(d&&d.nodes){d.nodes.forEach(function(n){n.label=n.name;});d.edges.forEach(function(e){e.label=e.rel;});_gcache[ws]=d;return d;}}catch(e){}return null;}
  function connNorm(v){return String(v||'').toLowerCase().replace(/[\s_]+/g,'-');}
- function resolveConn(graph,sources){var keep={Entity:1,EntityType:1};
-   var nodes=graph.nodes.filter(function(n){return keep[n.type];}),byId={};nodes.forEach(function(n){byId[n.id]=n;});
+ function resolveConn(graph,sources){
+   var nodes=graph.nodes.slice(),byId={};nodes.forEach(function(n){byId[n.id]=n;});
    var cites=(sources||[]).map(connNorm).filter(function(x){return x;});
    var hits=[];nodes.forEach(function(n){var nl=connNorm(n.label);for(var i=0;i<cites.length;i++){var cq=cites[i];if(nl===cq||nl.indexOf(cq)>=0||cq.indexOf(nl)>=0){hits.push(n.id);break;}}});
    if(!hits.length)return null;
    var edges=graph.edges.filter(function(e){return byId[e.source]&&byId[e.target];});
    var hitSet={};hits.forEach(function(id){hitSet[id]=1;});var ids=hits.slice();
-   edges.forEach(function(e){if(hitSet[e.source]&&byId[e.target].type==='Entity'&&ids.indexOf(e.target)<0)ids.push(e.target);if(hitSet[e.target]&&byId[e.source].type==='Entity'&&ids.indexOf(e.source)<0)ids.push(e.source);});
+   edges.forEach(function(e){if(hitSet[e.source]&&byId[e.target]&&ids.indexOf(e.target)<0)ids.push(e.target);if(hitSet[e.target]&&byId[e.source]&&ids.indexOf(e.source)<0)ids.push(e.source);});
    ids=ids.slice(0,12);var idset={};ids.forEach(function(id){idset[id]=1;});
    return {nodes:ids.map(function(id){return byId[id];}),edges:edges.filter(function(e){return idset[e.source]&&idset[e.target];})};}
  function buildConnMap(container,resolved){loadVis(function(){
