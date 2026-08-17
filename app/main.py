@@ -318,6 +318,24 @@ def api_graph(workspace: str = "default"):
     return {"nodes": nodes, "edges": edges}
 
 
+@app.get("/evidence")
+def evidence():
+    """The landing page's benchmark section stays hidden until a real, dated eval exists.
+    Serve research/evidence.json when the correctness benchmark has been run; otherwise
+    report it as unavailable (never show an unproven number)."""
+    path = os.path.join(ROOT, "research", "evidence.json")
+    try:
+        with open(path, "r") as fh:
+            import json
+            data = json.load(fh)
+            if isinstance(data, dict):
+                data.setdefault("available", True)
+                return data
+    except (FileNotFoundError, ValueError):
+        pass
+    return {"available": False}
+
+
 @app.get("/api/timeline")
 def api_timeline(workspace: str = "default"):
     with store.connect() as conn, conn.cursor() as c:
